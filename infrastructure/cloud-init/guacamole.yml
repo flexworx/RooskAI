@@ -1,0 +1,115 @@
+#cloud-config
+# Apache Guacamole Gateway — Byrth NexGen Platform
+# Web-based remote desktop gateway (RDP/VNC/SSH through browser)
+
+hostname: guacamole
+manage_etc_hosts: true
+fqdn: guacamole.nexgen.local
+
+users:
+  - name: deploy
+    groups: sudo, docker
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - qemu-guest-agent
+  - ufw
+  - docker.io
+  - docker-compose
+
+write_files:
+  - path: /opt/guacamole/docker-compose.yml
+    content: |
+      version: "3.9"
+      services:
+        guacd:
+          image: guacamole/guacd:1.5.4
+          container_name: guacd
+          restart: always
+          networks:
+            - guac-net
+
+        postgres:
+          image: postgres:16-alpine
+          container_name: guac-db
+          restart: always
+          environment:
+            POSTGRES_DB: guacamole_db
+            POSTGRES_USER: guacamole_user
+            POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD:-guac_s3cret_2026}
+          volumes:
+            - guac-db-data:/var/lib/postgresql/data
+            - /opt/guacamole/initdb.sql:/docker-entrypoint-initdb.d/init.sql:ro
+          networks:
+            - guac-net
+
+        guacamole:
+          image: guacamole/guacamole:1.5.4
+          container_name: guacamole
+          restart: always
+          depends_on:
+            - guacd
+            - postgres
+          environment:
+            GUACD_HOSTNAME: guacd
+            POSTGRES_HOSTNAME: postgres
+            POSTGRES_PORT: "5432"
+            POSTGRES_DATABASE: guacamole_db
+            POSTGRES_USER: guacamole_user
+            POSTGRES_PASSWORD: ${GUAC_DB_PASSWORD:-guac_s3cret_2026}
+          ports:
+            - "8080:8080"
+          networks:
+            - guac-net
+
+      volumes:
+        guac-db-data:
+
+      networks:
+        guac-net:
+          driver: bridge
+
+  - path: /opt/guacamole/setup.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      # Generate the Guacamole database initialization SQL
+      echo "Generating Guacamole DB init script..."
+      docker run --rm guacamole/guacamole:1.5.4 /opt/guacamole/bin/initdb.sh --postgresql > /opt/guacamole/initdb.sql
+      echo "Starting Guacamole stack..."
+      cd /opt/guacamole && docker-compose up -d
+      echo "Waiting for services to start..."
+      sleep 15
+      echo "Guacamole is ready at http://localhost:8080/guacamole"
+      echo "Default credentials: guacadmin / guacadmin"
+      echo "IMPORTANT: Change the default password immediately!"
+
+runcmd:
+  # Enable Docker
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -aG docker deploy
+
+  # Run the Guacamole setup script
+  - /opt/guacamole/setup.sh
+
+  # Configure firewall
+  - ufw allow 22/tcp
+  - ufw allow 8080/tcp
+  - ufw --force enable
+
+  # Enable guest agent
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+
+final_message: "Apache Guacamole ready at http://<VM_IP>:8080/guacamole — default login guacadmin/guacadmin (change immediately)"

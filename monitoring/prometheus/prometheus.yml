@@ -1,0 +1,61 @@
+# Prometheus configuration for Murph.AI NexGen Platform
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  # Platform API metrics
+  - job_name: 'nexgen-api'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: platform-api
+          environment: production
+
+  # Proxmox Node Exporter
+  - job_name: 'proxmox-node'
+    static_configs:
+      - targets: ['192.168.4.58:9100']
+        labels:
+          service: proxmox
+          node: r7625
+
+  # PostgreSQL Exporter
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['10.20.0.20:9187']
+        labels:
+          service: postgresql
+          role: primary
+      - targets: ['10.20.0.21:9187']
+        labels:
+          service: postgresql
+          role: replica
+
+  # Keycloak metrics
+  - job_name: 'keycloak'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['192.168.4.20:8443']
+        labels:
+          service: keycloak
+
+  # Vault metrics (requires node_exporter on VM-SEC-01)
+  # Note: bearer_token auth configured after Vault is initialized
+  - job_name: 'vault'
+    metrics_path: /v1/sys/metrics
+    params:
+      format: ['prometheus']
+    static_configs:
+      - targets: ['192.168.4.30:8200']
+        labels:
+          service: vault
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,99 @@
+---
+# Phase 1: Proxmox VE 9.1 Post-Install Configuration
+# Dell PowerEdge R7625 — 2x EPYC 9354, 128GB, 3x 3.84TB NVMe
+
+- name: Configure Proxmox VE Host
+  hosts: proxmox
+  become: true
+  vars:
+    zfs_pool_name: nexgen-pool
+    mgmt_vlan: 10
+    mgmt_subnet: "192.168.4.0/24"
+
+  tasks:
+    # --- System Hardening ---
+    - name: Update all packages
+      apt:
+        update_cache: true
+        upgrade: full
+
+    - name: Disable root SSH password login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin prohibit-password'
+      notify: restart sshd
+
+    - name: Enable Proxmox firewall
+      command: pvesh set /cluster/firewall/options --enable 1
+
+    # --- ZFS Storage (RAIDZ1 per Addendum v1.1 Section A5) ---
+    - name: Check if ZFS pool exists
+      command: zpool list {{ zfs_pool_name }}
+      register: zpool_check
+      failed_when: false
+      changed_when: false
+
+    - name: Create ZFS RAIDZ1 pool (3x 3.84TB NVMe)
+      command: >
+        zpool create -o ashift=12 {{ zfs_pool_name }} raidz1
+        /dev/disk/by-id/nvme-DELL_NVMe_ISE_PS1010_BIDAN0027I150AM50
+        /dev/disk/by-id/nvme-DELL_NVMe_ISE_PS1010_BIDAN0027I150AM4H
+        /dev/disk/by-id/nvme-DELL_NVMe_ISE_PS1010_BIDAN0027I150AM4N
+      when: zpool_check.rc != 0
+
+    - name: Create ZFS datasets
+      zfs:
+        name: "{{ zfs_pool_name }}/{{ item.name }}"
+        state: present
+        extra_zfs_properties:
+          compression: lz4
+          recordsize: "{{ item.recordsize | default('128k') }}"
+      loop:
+        - { name: vm-disks }
+        - { name: backups }
+        - { name: isos }
+        - { name: databases, recordsize: 8k }
+        - { name: gitea }
+
+    # --- Proxmox API Token ---
+    - name: Create platform API user
+      command: pveum user add platform@pve
+      failed_when: false
+      changed_when: false
+
+    - name: Create PlatformAPI role
+      command: >
+        pveum role add PlatformAPI -privs
+        "VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Disk
+        VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options
+        VM.Monitor VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit"
+      failed_when: false
+      changed_when: false
+
+    - name: Assign role to platform user
+      command: pveum aclmod / -user platform@pve -role PlatformAPI
+      failed_when: false
+      changed_when: false
+
+    # --- Backup Configuration ---
+    - name: Configure daily VM backup job
+      command: >
+        pvesh create /cluster/backup
+        --all 1
+        --compress zstd
+        --dow mon,tue,wed,thu,fri,sat,sun
+        --enabled 1
+        --mailnotification failure
+        --mode snapshot
+        --schedule "02:00"
+        --storage {{ zfs_pool_name }}-backups
+        --maxfiles 30
+      failed_when: false
+      changed_when: false
+
+  handlers:
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted

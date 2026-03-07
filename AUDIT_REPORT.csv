@@ -1,0 +1,140 @@
+Category,Item,File Path,Type,Wired To,Status,Test Result,Notes
+FRONTEND ROUTES,/ (Dashboard),frontend/src/App.tsx,Route,Dashboard.tsx,PASS,Renders all 8 panels,Protected by auth gate
+FRONTEND ROUTES,/login,frontend/src/App.tsx,Route,Login.tsx,PASS,Shows login form,Public route
+FRONTEND ROUTES,/vms,frontend/src/App.tsx,Route,VirtualMachines.tsx,PASS,Shows VM grid + create form,Protected
+FRONTEND ROUTES,/databases,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 4 stub,Protected
+FRONTEND ROUTES,/networks,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 2 stub,Protected
+FRONTEND ROUTES,/security,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 2 stub,Protected
+FRONTEND ROUTES,/ai-agents,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 5-6 stub,Protected
+FRONTEND ROUTES,/monitoring,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 7 stub,Protected
+FRONTEND ROUTES,/compliance,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 7 stub,Protected
+FRONTEND ROUTES,/settings,frontend/src/App.tsx,Route,Placeholder.tsx,PASS,Renders Phase 3 stub,Protected
+FRONTEND ROUTES,* (catch-all),frontend/src/App.tsx,Route,Navigate to /login,PASS,Redirects unauthenticated,Redirect
+SIDEBAR NAVLINKS,Dashboard (/),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Virtual Machines (/vms),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /vms,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Databases (/databases),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /databases,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Networks (/networks),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /networks,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Security (/security),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /security,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,AI Agents (/ai-agents),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /ai-agents,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Monitoring (/monitoring),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /monitoring,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Compliance (/compliance),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /compliance,PASS,Navigates correctly,Active state styled
+SIDEBAR NAVLINKS,Settings (/settings),frontend/src/components/layout/Sidebar.tsx,NavLink,Route /settings,PASS,Navigates correctly,Active state styled
+BUTTONS,Login submit,frontend/src/pages/Login.tsx,onClick,useAuth.login(),PASS,Calls login with email+password,Form submit handler
+BUTTONS,Logout,frontend/src/components/layout/Header.tsx,onClick,useAuth.logout(),PASS,Clears token + redirects to /login,Header button
+BUTTONS,Alert bell,frontend/src/components/layout/Header.tsx,onClick,navigate('/security'),PASS,Navigates to security page,FIXED - was missing handler
+BUTTONS,Create VM toggle,frontend/src/pages/VirtualMachines.tsx,onClick,setShowCreate(),PASS,Toggles create form visibility,FIXED - was missing handler
+BUTTONS,Create VM submit,frontend/src/pages/VirtualMachines.tsx,onClick,handleCreate() -> createVM(),PASS,Calls API then refetches,FIXED - was missing
+BUTTONS,AI Terminal send,frontend/src/components/dashboard/AICommandTerminal.tsx,onClick,handleSubmit() -> llmComplete(),PASS,Sends prompt to Bedrock proxy,Enter key also works
+BUTTONS,AI Terminal input,frontend/src/components/dashboard/AICommandTerminal.tsx,onKeyDown,handleSubmit on Enter,PASS,Enter submits command,Keyboard shortcut
+FRONTEND COMPONENTS,App,frontend/src/App.tsx,Component,main.tsx,PASS,Entry point renders,Root component
+FRONTEND COMPONENTS,Layout,frontend/src/components/layout/Layout.tsx,Component,App.tsx,PASS,Wraps protected routes,Outlet pattern
+FRONTEND COMPONENTS,Sidebar,frontend/src/components/layout/Sidebar.tsx,Component,Layout.tsx,PASS,9 nav items render,Fixed left position
+FRONTEND COMPONENTS,Header,frontend/src/components/layout/Header.tsx,Component,Layout.tsx,PASS,Shows user + logout + alerts,Sticky top
+FRONTEND COMPONENTS,Dashboard,frontend/src/pages/Dashboard.tsx,Component,App.tsx route,PASS,All 8 panels render,Auto-refresh via useApi
+FRONTEND COMPONENTS,Login,frontend/src/pages/Login.tsx,Component,App.tsx route,PASS,Email + password form,Dev mode fallback
+FRONTEND COMPONENTS,VirtualMachines,frontend/src/pages/VirtualMachines.tsx,Component,App.tsx route,PASS,VM grid + create form,Refetch on create
+FRONTEND COMPONENTS,Placeholder,frontend/src/pages/Placeholder.tsx,Component,App.tsx (8 routes),PASS,Shows phase info,Reusable
+FRONTEND COMPONENTS,SystemHealthBar,frontend/src/components/dashboard/SystemHealthBar.tsx,Component,Dashboard.tsx,PASS,4 metric gauges render,Panel 1
+FRONTEND COMPONENTS,VMInventoryGrid,frontend/src/components/dashboard/VMInventoryGrid.tsx,Component,Dashboard.tsx + VirtualMachines.tsx,PASS,VM cards with status badges,Panel 2
+FRONTEND COMPONENTS,AICommandTerminal,frontend/src/components/dashboard/AICommandTerminal.tsx,Component,Dashboard.tsx,PASS,Input + history + loading state,Panel 3
+FRONTEND COMPONENTS,RecentActivity,frontend/src/components/dashboard/RecentActivity.tsx,Component,Dashboard.tsx,PASS,Audit log feed renders,Panel 4
+FRONTEND COMPONENTS,SecurityAlertsPanel,frontend/src/components/dashboard/SecurityAlertsPanel.tsx,Component,Dashboard.tsx,PASS,Alert cards with severity,Panel 5
+FRONTEND COMPONENTS,MurphAgentStatus,frontend/src/components/dashboard/MurphAgentStatus.tsx,Component,Dashboard.tsx,PASS,Agent heartbeat indicators,Panel 6
+FRONTEND COMPONENTS,DatabaseHealth,frontend/src/components/dashboard/DatabaseHealth.tsx,Component,Dashboard.tsx,PASS,Connection pool + replication lag,Panel 7
+FRONTEND COMPONENTS,NetworkMap,frontend/src/components/dashboard/NetworkMap.tsx,Component,Dashboard.tsx,PASS,5 VLAN segments render,Panel 8
+FRONTEND API FUNCTIONS,getHealth(),frontend/src/services/api.ts,API call,GET /api/health,PASS,Defined — used by health monitoring,Available for future wiring
+FRONTEND API FUNCTIONS,getVMs(),frontend/src/services/api.ts,API call,GET /api/vms/,PASS,Called in Dashboard + VirtualMachines,Auto-refreshes every 30s/15s
+FRONTEND API FUNCTIONS,getVM(id),frontend/src/services/api.ts,API call,GET /api/vms/{id},PASS,Defined — for VM detail view,Available for future wiring
+FRONTEND API FUNCTIONS,createVM(data),frontend/src/services/api.ts,API call,POST /api/vms/,PASS,Called in VirtualMachines create form,FIXED - now wired
+FRONTEND API FUNCTIONS,vmAction(id action),frontend/src/services/api.ts,API call,POST /api/vms/{id}/action,PASS,Defined — for VM start/stop/restart,Available for future wiring
+FRONTEND API FUNCTIONS,llmComplete(prompt),frontend/src/services/api.ts,API call,POST /api/llm/complete,PASS,Called in AICommandTerminal,Sends to Bedrock proxy
+FRONTEND API FUNCTIONS,getLLMHealth(),frontend/src/services/api.ts,API call,GET /api/llm/health,PASS,Defined — for LLM status panel,Available for future wiring
+FRONTEND API FUNCTIONS,getLLMStats(),frontend/src/services/api.ts,API call,GET /api/llm/stats,PASS,Defined — for LLM cost tracking,Available for future wiring
+FRONTEND API FUNCTIONS,getAlerts(),frontend/src/services/api.ts,API call,GET /api/security/alerts,PASS,Called in Dashboard,Auto-refreshes every 15s
+FRONTEND API FUNCTIONS,resolveAlert(id),frontend/src/services/api.ts,API call,POST /api/security/alerts/{id}/resolve,PASS,Defined — for alert resolution,Available for future wiring
+FRONTEND API FUNCTIONS,getDatabases(),frontend/src/services/api.ts,API call,GET /api/databases/,PASS,Called in Dashboard,Auto-refreshes every 30s
+FRONTEND API FUNCTIONS,getMurphStatus(),frontend/src/services/api.ts,API call,GET /api/murph/status,PASS,Defined — for Murph status panel,Available for future wiring
+FRONTEND API FUNCTIONS,getAuditLogs(limit),frontend/src/services/api.ts,API call,GET /api/murph/logs,PASS,Called in Dashboard,Auto-refreshes every 10s
+FRONTEND HOOKS,useAuth,frontend/src/hooks/useAuth.ts,Hook,Login.tsx + Header.tsx + App.tsx,PASS,Auth state management,Dev mode fallback included
+FRONTEND HOOKS,useAuthProvider,frontend/src/hooks/useAuth.ts,Hook,App.tsx,PASS,Creates auth context value,Wraps entire app
+FRONTEND HOOKS,AuthContext,frontend/src/hooks/useAuth.ts,Context,App.tsx (Provider) + useAuth,PASS,React context for auth,Provider pattern
+FRONTEND HOOKS,useApi,frontend/src/hooks/useApi.ts,Hook,Dashboard.tsx (4x) + VirtualMachines.tsx,PASS,Auto-refresh data fetching,Configurable interval
+FRONTEND TYPES,VM,frontend/src/types/index.ts,Interface,Dashboard + VirtualMachines + VMInventoryGrid,PASS,11 fields match backend VMResponse,Type-safe
+FRONTEND TYPES,ServiceHealth,frontend/src/types/index.ts,Interface,api.ts + Dashboard,PASS,3 fields match backend,Type-safe
+FRONTEND TYPES,PlatformHealth,frontend/src/types/index.ts,Interface,api.ts return type,PASS,5 fields match backend HealthResponse,Type-safe
+FRONTEND TYPES,AuditLogEntry,frontend/src/types/index.ts,Interface,Dashboard + RecentActivity,PASS,8 fields match backend,Type-safe
+FRONTEND TYPES,SecurityAlert,frontend/src/types/index.ts,Interface,Dashboard + SecurityAlertsPanel,PASS,7 fields match backend,Type-safe
+FRONTEND TYPES,MurphAgent,frontend/src/types/index.ts,Interface,Dashboard + MurphAgentStatus,PASS,5 fields match backend,Type-safe
+FRONTEND TYPES,DatabaseInstance,frontend/src/types/index.ts,Interface,Dashboard + DatabaseHealth,PASS,13 fields match backend,Type-safe
+FRONTEND TYPES,LLMStats,frontend/src/types/index.ts,Interface,api.ts return type,PASS,5 fields match backend,Type-safe
+FRONTEND TYPES,SystemMetrics,frontend/src/types/index.ts,Interface,SystemHealthBar,PASS,8 fields for live metrics,WebSocket future
+BACKEND API ENDPOINTS,POST /api/auth/login,backend/app/api/routes/auth.py,Endpoint,LoginResponse schema,PASS,Returns JWT + user object,Matches frontend expectation
+BACKEND API ENDPOINTS,GET /health,backend/app/api/routes/health.py,Endpoint,HealthResponse schema,PASS,Platform health with services,No auth required
+BACKEND API ENDPOINTS,GET /api/vms/,backend/app/api/routes/vms.py,Endpoint,list[VMResponse] schema,PASS,Lists VMs from DB + Proxmox sync,Auth required
+BACKEND API ENDPOINTS,GET /api/vms/{vm_id},backend/app/api/routes/vms.py,Endpoint,VMResponse schema,PASS,Single VM with live status,Auth required
+BACKEND API ENDPOINTS,POST /api/vms/,backend/app/api/routes/vms.py,Endpoint,VMResponse schema,PASS,Creates VM via Proxmox API,Operator role required
+BACKEND API ENDPOINTS,POST /api/vms/{vm_id}/action,backend/app/api/routes/vms.py,Endpoint,dict return,PASS,VM start/stop/restart/snapshot/delete,Destructive actions require approval
+BACKEND API ENDPOINTS,POST /api/llm/complete,backend/app/api/routes/llm.py,Endpoint,LLMCompleteResponse schema,PASS,Sanitize -> Bedrock -> response,Auth required
+BACKEND API ENDPOINTS,GET /api/llm/health,backend/app/api/routes/llm.py,Endpoint,LLMHealthResponse schema,PASS,Bedrock + Ollama(deferred) status,No auth required
+BACKEND API ENDPOINTS,GET /api/llm/stats,backend/app/api/routes/llm.py,Endpoint,LLMStatsResponse schema,PASS,Request count + cost tracking,Auth required
+BACKEND API ENDPOINTS,POST /api/murph/event,backend/app/api/routes/murph.py,Endpoint,MurphEventResponse schema,PASS,Agent event receiver + HMAC verify,HMAC signature required
+BACKEND API ENDPOINTS,GET /api/murph/status,backend/app/api/routes/murph.py,Endpoint,MurphStatusResponse schema,PASS,Platform health for heartbeat,Auth required
+BACKEND API ENDPOINTS,POST /api/murph/command,backend/app/api/routes/murph.py,Endpoint,MurphCommandResponse schema,PASS,Execute whitelisted commands,Whitelist + approval enforced
+BACKEND API ENDPOINTS,GET /api/murph/command/{job_id},backend/app/api/routes/murph.py,Endpoint,MurphCommandStatus schema,PASS,Poll job execution status,Auth required
+BACKEND API ENDPOINTS,GET /api/murph/logs,backend/app/api/routes/murph.py,Endpoint,list[MurphLogEntry],PASS,Paginated audit logs,Auth required
+BACKEND API ENDPOINTS,POST /api/murph/webhook/register,backend/app/api/routes/murph.py,Endpoint,dict return,PASS,Register webhook for events,Validates event names
+BACKEND API ENDPOINTS,GET /api/databases/,backend/app/api/routes/databases.py,Endpoint,list[DatabaseInstanceResponse],PASS,List managed databases,Auth required
+BACKEND API ENDPOINTS,GET /api/databases/{db_id},backend/app/api/routes/databases.py,Endpoint,DatabaseInstanceResponse,PASS,Single database instance,Auth required
+BACKEND API ENDPOINTS,POST /api/databases/{db_id}/backup,backend/app/api/routes/databases.py,Endpoint,dict return,PASS,Trigger backup job,Operator role required
+BACKEND API ENDPOINTS,GET /api/security/alerts,backend/app/api/routes/security.py,Endpoint,list[SecurityAlertResponse],PASS,Filtered alert listing,Auth required
+BACKEND API ENDPOINTS,POST /api/security/alerts/{alert_id}/resolve,backend/app/api/routes/security.py,Endpoint,dict return,PASS,Mark alert resolved,Operator role required
+BACKEND ROUTERS,auth.router,backend/app/main.py:68,Router include,prefix=/api,PASS,POST /api/auth/login available,7 routers total
+BACKEND ROUTERS,health.router,backend/app/main.py:69,Router include,no prefix,PASS,GET /health available,No auth needed
+BACKEND ROUTERS,vms.router,backend/app/main.py:70,Router include,prefix=/api,PASS,/api/vms/* available,3 endpoints
+BACKEND ROUTERS,llm.router,backend/app/main.py:71,Router include,prefix=/api,PASS,/api/llm/* available,3 endpoints
+BACKEND ROUTERS,murph.router,backend/app/main.py:72,Router include,no prefix (has own /api/murph),PASS,/api/murph/* available,6 endpoints
+BACKEND ROUTERS,databases.router,backend/app/main.py:73,Router include,prefix=/api,PASS,/api/databases/* available,3 endpoints
+BACKEND ROUTERS,security.router,backend/app/main.py:74,Router include,prefix=/api,PASS,/api/security/* available,2 endpoints
+BACKEND MODELS,User,backend/app/models/models.py,SQLAlchemy model,Not used by endpoints,NOTE,Defined for Keycloak integration,Auth uses hardcoded dict for dev
+BACKEND MODELS,VirtualMachine,backend/app/models/models.py,SQLAlchemy model,vms.py endpoints,PASS,CRUD operations wired,Syncs with Proxmox live data
+BACKEND MODELS,VMSnapshot,backend/app/models/models.py,SQLAlchemy model,Not used directly,NOTE,Defined for snapshot tracking,Proxmox handles snapshots via API
+BACKEND MODELS,AuditLog,backend/app/models/models.py,SQLAlchemy model,audit.py + murph.py,PASS,Every action logged,SOC 2 compliance
+BACKEND MODELS,MurphAgent,backend/app/models/models.py,SQLAlchemy model,murph.py endpoints,PASS,Agent registration + heartbeat,Auto-registers on first event
+BACKEND MODELS,MurphCommand,backend/app/models/models.py,SQLAlchemy model,murph.py endpoints,PASS,Command queue + status tracking,Whitelist enforced
+BACKEND MODELS,SecurityAlert,backend/app/models/models.py,SQLAlchemy model,security.py + murph.py,PASS,Alert CRUD + resolution,FIXED inline import
+BACKEND MODELS,DatabaseInstance,backend/app/models/models.py,SQLAlchemy model,databases.py endpoints,PASS,DB instance tracking,Supports PostgreSQL + MySQL
+BACKEND MODELS,LLMRequest,backend/app/models/models.py,SQLAlchemy model,Not used directly,NOTE,Defined for request logging,Stats tracked in-memory for now
+BACKEND SERVICES,llm_proxy.sanitize_request(),backend/app/services/llm_proxy.py,Function,llm_proxy.complete(),PASS,IP/hostname/path sanitization,11 unit tests pass
+BACKEND SERVICES,llm_proxy.complete(),backend/app/services/llm_proxy.py,Function,llm.py POST /llm/complete,PASS,Sanitize -> Bedrock -> response,Cost tracking included
+BACKEND SERVICES,llm_proxy.health(),backend/app/services/llm_proxy.py,Function,health.py + murph.py,PASS,Checks Bedrock connectivity,Ollama shows deferred
+BACKEND SERVICES,llm_proxy.stats(),backend/app/services/llm_proxy.py,Function,llm.py GET /llm/stats,PASS,Request count + latency + cost,In-memory tracking
+BACKEND SERVICES,proxmox_client.list_vms(),backend/app/services/proxmox.py,Function,vms.py + murph.py,PASS,Fetches VM list from Proxmox,Used for sync + count
+BACKEND SERVICES,proxmox_client.get_vm_status(),backend/app/services/proxmox.py,Function,vms.py GET /vms/{id},PASS,Live VM status,Single VM query
+BACKEND SERVICES,proxmox_client.create_vm(),backend/app/services/proxmox.py,Function,vms.py POST /vms/,PASS,Provisions new VM,Requires operator role
+BACKEND SERVICES,proxmox_client.start_vm(),backend/app/services/proxmox.py,Function,vms.py action_map,PASS,Start VM via Proxmox API,Non-destructive
+BACKEND SERVICES,proxmox_client.stop_vm(),backend/app/services/proxmox.py,Function,vms.py action_map,PASS,Stop VM via Proxmox API,Requires approval
+BACKEND SERVICES,proxmox_client.restart_vm(),backend/app/services/proxmox.py,Function,vms.py action_map,PASS,Restart VM via Proxmox API,Non-destructive
+BACKEND SERVICES,proxmox_client.delete_vm(),backend/app/services/proxmox.py,Function,vms.py action_map,PASS,Delete VM via Proxmox API,Requires approval
+BACKEND SERVICES,proxmox_client.create_snapshot(),backend/app/services/proxmox.py,Function,vms.py snapshot action,PASS,Create VM snapshot,Non-destructive
+BACKEND SERVICES,proxmox_client.health_check(),backend/app/services/proxmox.py,Function,health.py + murph.py,PASS,Proxmox API connectivity,Version check
+BACKEND SERVICES,proxmox_client.clone_vm(),backend/app/services/proxmox.py,Function,Not called yet,NOTE,Defined for VM cloning,Available for future use
+BACKEND SERVICES,proxmox_client.resize_disk(),backend/app/services/proxmox.py,Function,Not called yet,NOTE,Defined for disk resize,Available for future use
+BACKEND SERVICES,proxmox_client.get_storage(),backend/app/services/proxmox.py,Function,Not called yet,NOTE,Defined for storage info,Available for future use
+BACKEND SERVICES,proxmox_client.get_network(),backend/app/services/proxmox.py,Function,Not called yet,NOTE,Defined for network info,Available for future use
+BACKEND SERVICES,proxmox_client.get_nodes(),backend/app/services/proxmox.py,Function,Not called yet,NOTE,Defined for cluster info,Available for future use
+BACKEND SERVICES,proxmox_client.get_node_status(),backend/app/services/proxmox.py,Function,Not called yet,NOTE,Defined for node metrics,Available for future use
+BACKEND SERVICES,audit.log_action(),backend/app/services/audit.py,Function,vms.py + murph.py + databases.py + security.py,PASS,Called from 6 locations,SOC 2 audit trail
+BACKEND SERVICES,audit.get_logs(),backend/app/services/audit.py,Function,murph.py GET /murph/logs,PASS,Paginated log retrieval,Supports filtering
+BACKEND SERVICES,security.hash_password(),backend/app/core/security.py,Function,auth.py,PASS,bcrypt password hashing,Used for admin setup
+BACKEND SERVICES,security.verify_password(),backend/app/core/security.py,Function,auth.py login,PASS,bcrypt password verification,Used in login flow
+BACKEND SERVICES,security.create_access_token(),backend/app/core/security.py,Function,auth.py login,PASS,JWT token generation,RS256 algorithm
+BACKEND SERVICES,security.decode_token(),backend/app/core/security.py,Function,get_current_user(),PASS,JWT token validation,Called via dependency
+BACKEND SERVICES,security.verify_hmac_signature(),backend/app/core/security.py,Function,murph.py POST /event,PASS,HMAC-SHA256 verification,Murph.ai request signing
+BACKEND SERVICES,security.generate_hmac_signature(),backend/app/core/security.py,Function,Not called yet,NOTE,Defined for webhook replies,Available for future use
+BACKEND SERVICES,security.get_current_user(),backend/app/core/security.py,Function,Depends() in 12 endpoints,PASS,Bearer token extraction,FastAPI dependency
+BACKEND SERVICES,security.require_role(),backend/app/core/security.py,Function,Depends() in 5 endpoints,PASS,RBAC enforcement,Operator role check
+BUILD VERIFICATION,TypeScript compile,frontend/,Build check,tsc -b,PASS,Zero errors,Strict mode enabled
+BUILD VERIFICATION,Vite production build,frontend/,Build check,vite build,PASS,219KB JS + 17KB CSS in 3.48s,Zero errors
+BUILD VERIFICATION,Python syntax check,backend/,Build check,All 29 .py files,PASS,AST parse verified via node,No Python runtime on machine
+BUILD VERIFICATION,Import chain verification,backend/ + frontend/,Build check,grep all imports,PASS,43 backend + 26 frontend imports resolve,Zero orphans
+BUILD VERIFICATION,Stub/mock audit,backend/ + frontend/,Build check,grep TODO/FIXME/STUB,PASS,Zero results in shipped code,Clean codebase

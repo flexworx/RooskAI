@@ -1,0 +1,101 @@
+#cloud-config
+# code-server (VS Code in Browser) — Byrth NexGen Platform
+# Deploys code-server with pre-configured extensions and Claude Code CLI
+
+hostname: code-server
+manage_etc_hosts: true
+fqdn: code-server.nexgen.local
+
+users:
+  - name: deploy
+    groups: sudo, docker
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - build-essential
+  - python3
+  - python3-pip
+  - python3-venv
+  - qemu-guest-agent
+  - ufw
+  - jq
+  - unzip
+
+write_files:
+  - path: /etc/systemd/system/code-server.service
+    content: |
+      [Unit]
+      Description=code-server
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=deploy
+      Environment=PASSWORD=${CODE_SERVER_PASSWORD:-nexgen2026}
+      ExecStart=/usr/bin/code-server --bind-addr 0.0.0.0:8080 --auth password
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /home/deploy/.config/code-server/config.yaml
+    owner: deploy:deploy
+    permissions: "0644"
+    content: |
+      bind-addr: 0.0.0.0:8080
+      auth: password
+      cert: false
+
+runcmd:
+  # Install Node.js 20 LTS
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+
+  # Install Docker
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker deploy
+
+  # Install code-server
+  - curl -fsSL https://code-server.dev/install.sh | sh
+
+  # Install useful VS Code extensions
+  - |
+    sudo -u deploy code-server --install-extension ms-python.python
+    sudo -u deploy code-server --install-extension dbaeumer.vscode-eslint
+    sudo -u deploy code-server --install-extension esbenp.prettier-vscode
+    sudo -u deploy code-server --install-extension bradlc.vscode-tailwindcss
+    sudo -u deploy code-server --install-extension eamodio.vscode-gitlens
+
+  # Install Claude Code CLI (npm global)
+  - npm install -g @anthropic-ai/claude-code
+
+  # Create workspace directory
+  - mkdir -p /home/deploy/workspace
+  - chown deploy:deploy /home/deploy/workspace
+
+  # Enable and start code-server
+  - systemctl daemon-reload
+  - systemctl enable code-server
+  - systemctl start code-server
+
+  # Configure firewall
+  - ufw allow 22/tcp
+  - ufw allow 8080/tcp
+  - ufw --force enable
+
+  # Enable guest agent
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+
+final_message: "code-server ready at http://<VM_IP>:8080 — password set via CODE_SERVER_PASSWORD env var"

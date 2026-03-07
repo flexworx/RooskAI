@@ -1,0 +1,224 @@
+export interface ServiceHealth {
+  name: string
+  status: 'healthy' | 'unhealthy' | 'deferred' | 'unknown'
+  latency_ms: number | null
+}
+
+export interface PlatformHealth {
+  status: string
+  platform: string
+  version: string
+  uptime_seconds: number
+  services: ServiceHealth[]
+}
+
+export interface VM {
+  id: string
+  vmid: number
+  name: string
+  status: 'running' | 'stopped' | 'paused' | 'suspended' | 'unknown'
+  os_type: string | null
+  cpu_cores: number | null
+  ram_mb: number | null
+  disk_gb: number | null
+  vlan: number | null
+  ip_address: string | null
+  node: string
+  template: boolean
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface AuditLogEntry {
+  id: string
+  user_id: string | null
+  agent_id: string | null
+  action: string
+  resource_type: string | null
+  resource_id: string | null
+  outcome: string
+  timestamp: string
+  parameters?: Record<string, unknown> | null
+  rollback_plan?: string | null
+  ip_address?: string | null
+}
+
+export interface SecurityAlert {
+  id: string
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info'
+  source: string
+  title: string
+  description: string | null
+  resolved: boolean
+  created_at: string
+}
+
+export interface MurphAgent {
+  agent_id: string
+  name: string
+  status: 'active' | 'inactive' | 'warning' | 'critical'
+  agent_type?: string
+  capabilities?: string[]
+  description?: string
+  version?: string
+  last_heartbeat: string | null
+  missed_heartbeats: number
+  registered_at?: string | null
+  webhook_url?: string | null
+  subscribed_events?: string[]
+}
+
+export interface AgentDetail extends MurphAgent {
+  recent_commands: {
+    job_id: string
+    command: string
+    status: string
+    progress: number
+    created_at: string | null
+  }[]
+}
+
+export interface DatabaseInstance {
+  id: string
+  name: string
+  engine: 'postgresql' | 'mysql'
+  version: string | null
+  host: string | null
+  port: number | null
+  role: 'primary' | 'replica' | 'standalone'
+  status: string
+  connections_active: number
+  connections_max: number
+  storage_used_gb: number
+  replication_lag_seconds: number | null
+  last_backup: string | null
+}
+
+export interface LLMStats {
+  total_requests: number
+  bedrock_requests: number
+  ollama_requests: number
+  avg_latency_ms: number
+  estimated_cost_usd: number
+}
+
+export interface SystemMetrics {
+  cpu_percent: number
+  ram_used_gb: number
+  ram_total_gb: number
+  storage_used_gb: number
+  storage_total_gb: number
+  network_rx_mbps: number
+  network_tx_mbps: number
+  source?: string
+  error?: string
+  uptime_seconds?: number
+  loadavg?: number[]
+  cpu_count?: number
+  cpu_model?: string
+}
+
+export interface NetworkInterface {
+  name: string
+  type: string
+  address: string | null
+  netmask: string | null
+  cidr: string | null
+  gateway: string | null
+  active: boolean
+  autostart: boolean
+  bridge_ports: string | null
+  comments: string | null
+}
+
+export interface NetworkTopology {
+  vlans: NetworkInterface[]
+  bridges: NetworkInterface[]
+  interfaces: Record<string, unknown>[]
+  source: string
+  error?: string
+}
+
+export interface StoragePool {
+  storage: string
+  type: string
+  content: string
+  total_bytes: number
+  used_bytes: number
+  available_bytes: number
+  active: boolean
+  enabled: number
+  shared: number
+}
+
+export interface StorageInfo {
+  pools: StoragePool[]
+  source: string
+  error?: string
+}
+
+export interface ComplianceControl {
+  id: string
+  domain: string
+  description: string
+  status: 'implemented' | 'attention_needed' | 'not_implemented'
+  evidence: string
+}
+
+export interface ComplianceSummary {
+  timestamp: string
+  total_controls: number
+  passing: number
+  attention_needed: number
+  compliance_score: number
+  controls: ComplianceControl[]
+  frameworks: string[]
+}
+
+export interface ServiceTemplate {
+  id: string
+  name: string
+  category: string
+  description: string
+  icon: string
+  vm_config: {
+    cores: number
+    ram_mb: number
+    disk_gb: number
+    vlan: number
+    os_type: string
+  }
+  requires_iso: string | null
+  post_install_notes: string
+}
+
+export interface ServiceDeployment {
+  deployment_id: string
+  template_id: string
+  template_name: string
+  vm_id: string
+  vmid: number
+  vm_name: string
+  status: string
+  message: string
+}
+
+export interface SSHHost {
+  name: string
+  host: string
+  port: number
+  username: string
+  group: string
+}
+
+export interface UserAccount {
+  id: string
+  username: string
+  email: string
+  role: 'platform_admin' | 'operator' | 'viewer' | 'api_service'
+  mfa_enabled: boolean
+  is_active: boolean
+  created_at: string | null
+  last_login: string | null
+}

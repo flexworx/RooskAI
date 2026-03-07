@@ -1,0 +1,131 @@
+#cloud-config
+# WireGuard VPN Server — Byrth NexGen Platform
+# Deploys a fully configured WireGuard VPN gateway
+
+hostname: wireguard-vpn
+manage_etc_hosts: true
+fqdn: wireguard-vpn.nexgen.local
+
+users:
+  - name: deploy
+    groups: sudo
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - wireguard
+  - wireguard-tools
+  - iptables
+  - qemu-guest-agent
+  - ufw
+  - curl
+  - jq
+
+write_files:
+  - path: /etc/sysctl.d/99-wireguard.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.all.forwarding = 1
+
+  - path: /usr/local/bin/wg-genclients.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # Generate WireGuard client configuration
+      set -euo pipefail
+
+      CLIENT_NAME="${1:?Usage: wg-genclients.sh <client-name>}"
+      WG_DIR="/etc/wireguard"
+      CLIENTS_DIR="${WG_DIR}/clients"
+      SERVER_PUB=$(cat "${WG_DIR}/server_public.key")
+      SERVER_ENDPOINT="${2:-$(curl -s ifconfig.me):51820}"
+
+      mkdir -p "${CLIENTS_DIR}"
+
+      # Generate client keys
+      CLIENT_PRIV=$(wg genkey)
+      CLIENT_PUB=$(echo "${CLIENT_PRIV}" | wg pubkey)
+      CLIENT_PSK=$(wg genpsk)
+
+      # Find next available IP
+      LAST_IP=$(grep -oP 'AllowedIPs = 10\.10\.0\.\K[0-9]+' "${WG_DIR}/wg0.conf" 2>/dev/null | sort -n | tail -1)
+      NEXT_IP=$((${LAST_IP:-1} + 1))
+      CLIENT_IP="10.10.0.${NEXT_IP}/32"
+
+      # Add peer to server config
+      cat >> "${WG_DIR}/wg0.conf" <<EOF
+
+      # ${CLIENT_NAME} — added $(date +%Y-%m-%d)
+      [Peer]
+      PublicKey = ${CLIENT_PUB}
+      PresharedKey = ${CLIENT_PSK}
+      AllowedIPs = ${CLIENT_IP}
+      EOF
+
+      # Generate client config file
+      cat > "${CLIENTS_DIR}/${CLIENT_NAME}.conf" <<EOF
+      [Interface]
+      PrivateKey = ${CLIENT_PRIV}
+      Address = ${CLIENT_IP}
+      DNS = 192.168.4.1
+
+      [Peer]
+      PublicKey = ${SERVER_PUB}
+      PresharedKey = ${CLIENT_PSK}
+      Endpoint = ${SERVER_ENDPOINT}
+      AllowedIPs = 192.168.4.0/24, 10.20.0.0/24, 10.10.0.0/24
+      PersistentKeepalive = 25
+      EOF
+
+      # Reload WireGuard
+      wg syncconf wg0 <(wg-quick strip wg0)
+
+      echo "Client config written to: ${CLIENTS_DIR}/${CLIENT_NAME}.conf"
+      echo "Client IP: ${CLIENT_IP}"
+
+runcmd:
+  # Enable IP forwarding
+  - sysctl -p /etc/sysctl.d/99-wireguard.conf
+
+  # Generate server keys
+  - mkdir -p /etc/wireguard
+  - wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
+  - chmod 600 /etc/wireguard/server_private.key
+
+  # Create WireGuard server config
+  - |
+    SERVER_PRIV=$(cat /etc/wireguard/server_private.key)
+    IFACE=$(ip route show default | awk '{print $5}')
+    cat > /etc/wireguard/wg0.conf <<EOF
+    [Interface]
+    PrivateKey = ${SERVER_PRIV}
+    Address = 10.10.0.1/24
+    ListenPort = 51820
+    PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ${IFACE} -j MASQUERADE
+    PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ${IFACE} -j MASQUERADE
+    EOF
+    chmod 600 /etc/wireguard/wg0.conf
+
+  # Enable and start WireGuard
+  - systemctl enable wg-quick@wg0
+  - systemctl start wg-quick@wg0
+
+  # Configure firewall
+  - ufw allow 51820/udp
+  - ufw allow 22/tcp
+  - ufw --force enable
+
+  # Generate first admin client config
+  - /usr/local/bin/wg-genclients.sh admin-byrth
+
+  # Enable guest agent
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+
+final_message: "WireGuard VPN server ready. Admin client config at /etc/wireguard/clients/admin-byrth.conf"

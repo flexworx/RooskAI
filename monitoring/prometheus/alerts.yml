@@ -1,0 +1,88 @@
+# Alert rules aligned with Incident Response Runbook (Section 4.3)
+groups:
+  - name: nexgen_platform
+    rules:
+      # P1 Critical — VM down
+      - alert: VMDown
+        expr: up{job="proxmox-node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Proxmox node {{ $labels.instance }} is down"
+          runbook: "P1 — Investigate within 15 minutes"
+
+      # P2 High — Database replication lag > 60s
+      - alert: PostgreSQLReplicationLag
+        expr: pg_stat_replication_replay_lag_seconds > 60
+        for: 1m
+        labels:
+          severity: high
+        annotations:
+          summary: "PostgreSQL replication lag is {{ $value }}s"
+          runbook: "P3 — Review within 4 hours"
+
+      # P2 High — Database connections > 80%
+      - alert: PostgreSQLConnectionsHigh
+        expr: (pg_stat_activity_count / pg_settings_max_connections) * 100 > 80
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "PostgreSQL connections at {{ $value }}%"
+
+      # P3 Medium — Storage > 80%
+      - alert: StorageHigh
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 20
+        for: 10m
+        labels:
+          severity: medium
+        annotations:
+          summary: "Storage usage above 80% on {{ $labels.instance }}"
+
+      # P2 High — Vault sealed
+      - alert: VaultSealed
+        expr: vault_core_unsealed == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HashiCorp Vault is sealed"
+          runbook: "P1 — Lock Vault, alert all admins, manual review before re-unseal"
+
+      # Platform API down
+      - alert: PlatformAPIDown
+        expr: up{job="nexgen-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NexGen Platform API is down"
+
+      # Murph.ai heartbeat missed (3+ consecutive)
+      - alert: MurphAgentHeartbeatMissed
+        expr: nexgen_murph_agent_missed_heartbeats > 2
+        for: 3m
+        labels:
+          severity: high
+        annotations:
+          summary: "Murph.ai agent {{ $labels.agent_id }} missed {{ $value }} heartbeats"
+          runbook: "Notify admin + send to Murph.ai event bus"
+
+      # High API latency
+      - alert: APILatencyHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="nexgen-api"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: medium
+        annotations:
+          summary: "Platform API P95 latency is {{ $value }}s"
+
+      # LLM Bedrock errors
+      - alert: BedrockErrorRate
+        expr: rate(nexgen_llm_errors_total{backend="bedrock"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "AWS Bedrock error rate elevated"

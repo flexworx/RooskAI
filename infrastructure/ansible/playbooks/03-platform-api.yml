@@ -1,0 +1,163 @@
+---
+# Phase 3: Platform API + Dashboard Deployment (VM-APP-01)
+
+- name: Deploy NexGen Platform API and Dashboard
+  hosts: vm-app-01
+  become: true
+  vars:
+    app_dir: /opt/nexgen
+    python_version: "3.11"
+    node_version: "20"
+
+  tasks:
+    # --- System Setup ---
+    - name: Install system dependencies
+      apt:
+        name:
+          - python3.11
+          - python3.11-venv
+          - python3-pip
+          - git
+          - nginx
+          - certbot
+          - curl
+        state: present
+        update_cache: true
+
+    - name: Install Node.js 20
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
+        apt-get install -y nodejs
+      args:
+        creates: /usr/bin/node
+
+    # --- Application Deployment ---
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: '0755'
+
+    - name: Clone platform repository
+      git:
+        repo: "http://vm-git-01.control.local:3000/murph/nexgen-platform.git"
+        dest: "{{ app_dir }}"
+        version: main
+      become_user: deploy
+
+    # --- Backend Setup ---
+    - name: Create Python virtual environment
+      command: python3.11 -m venv {{ app_dir }}/backend/.venv
+      args:
+        creates: "{{ app_dir }}/backend/.venv/bin/python"
+      become_user: deploy
+
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ app_dir }}/backend/requirements.txt"
+        virtualenv: "{{ app_dir }}/backend/.venv"
+      become_user: deploy
+
+    - name: Create platform API systemd service
+      copy:
+        dest: /etc/systemd/system/nexgen-api.service
+        content: |
+          [Unit]
+          Description=NexGen Platform API
+          After=network.target postgresql.service
+
+          [Service]
+          Type=simple
+          User=deploy
+          WorkingDirectory={{ app_dir }}/backend
+          ExecStart={{ app_dir }}/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+          Restart=always
+          RestartSec=5
+          EnvironmentFile={{ app_dir }}/backend/.env
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart nexgen-api
+
+    # --- Frontend Build ---
+    - name: Install frontend dependencies
+      command: npm ci
+      args:
+        chdir: "{{ app_dir }}/frontend"
+      become_user: deploy
+
+    - name: Build frontend
+      command: npm run build
+      args:
+        chdir: "{{ app_dir }}/frontend"
+      become_user: deploy
+
+    # --- Nginx Configuration ---
+    - name: Configure Nginx reverse proxy
+      copy:
+        dest: /etc/nginx/sites-available/nexgen
+        content: |
+          server {
+              listen 443 ssl http2;
+              server_name dashboard.nexgen.local;
+
+              ssl_certificate /etc/letsencrypt/live/nexgen.local/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/nexgen.local/privkey.pem;
+              ssl_protocols TLSv1.3;
+
+              # Frontend
+              location / {
+                  root {{ app_dir }}/frontend/dist;
+                  try_files $uri $uri/ /index.html;
+              }
+
+              # API proxy
+              location /api/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              # WebSocket
+              location /ws/ {
+                  proxy_pass http://127.0.0.1:8000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+
+              # Swagger docs
+              location /docs {
+                  proxy_pass http://127.0.0.1:8000;
+              }
+          }
+      notify: restart nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/nexgen
+        dest: /etc/nginx/sites-enabled/nexgen
+        state: link
+      notify: restart nginx
+
+    - name: Enable and start API
+      systemd:
+        name: nexgen-api
+        state: started
+        enabled: true
+        daemon_reload: true
+
+  handlers:
+    - name: restart nexgen-api
+      systemd:
+        name: nexgen-api
+        state: restarted
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted

@@ -1,0 +1,119 @@
+#cloud-config
+# Development Environment VM — Byrth NexGen Platform
+# Ubuntu VM with Docker, Git, Node.js, Python pre-installed
+
+hostname: dev-env
+manage_etc_hosts: true
+fqdn: dev-env.nexgen.local
+
+users:
+  - name: deploy
+    groups: sudo, docker
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - build-essential
+  - python3
+  - python3-pip
+  - python3-venv
+  - qemu-guest-agent
+  - ufw
+  - jq
+  - unzip
+  - htop
+  - tmux
+  - vim
+  - zip
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - software-properties-common
+  - apt-transport-https
+  - make
+  - gcc
+  - g++
+  - libssl-dev
+  - libffi-dev
+  - pkg-config
+
+write_files:
+  - path: /home/deploy/.bashrc.d/dev-env.sh
+    owner: deploy:deploy
+    permissions: "0644"
+    content: |
+      # Byrth Dev Environment aliases
+      alias ll='ls -alF'
+      alias dc='docker compose'
+      alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
+      alias gs='git status'
+      alias gl='git log --oneline -20'
+
+      # Node / Python version info on login
+      echo "--- Byrth Dev Environment ---"
+      echo "Node: $(node --version 2>/dev/null || echo 'not installed')"
+      echo "Python: $(python3 --version 2>/dev/null || echo 'not installed')"
+      echo "Docker: $(docker --version 2>/dev/null || echo 'not installed')"
+      echo "Git: $(git --version 2>/dev/null || echo 'not installed')"
+      echo "---"
+
+runcmd:
+  # Install Node.js 20 LTS
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+
+  # Install Docker
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker deploy
+
+  # Install Docker Compose plugin
+  - mkdir -p /usr/local/lib/docker/cli-plugins
+  - curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+  # Install Python tools
+  - pip3 install --break-system-packages pipx
+  - pipx ensurepath
+
+  # Install Rust (for some CLI tools)
+  - sudo -u deploy bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
+
+  # Install Claude Code CLI
+  - npm install -g @anthropic-ai/claude-code
+
+  # Create workspace directories
+  - mkdir -p /home/deploy/workspace /home/deploy/projects
+  - chown -R deploy:deploy /home/deploy/workspace /home/deploy/projects
+
+  # Enable bashrc.d loading
+  - |
+    cat >> /home/deploy/.bashrc <<'EOF'
+    # Load custom scripts
+    if [ -d ~/.bashrc.d ]; then
+      for f in ~/.bashrc.d/*.sh; do [ -r "$f" ] && . "$f"; done
+    fi
+    EOF
+    chown deploy:deploy /home/deploy/.bashrc
+
+  # Configure Git defaults for deploy user
+  - sudo -u deploy git config --global init.defaultBranch main
+  - sudo -u deploy git config --global pull.rebase false
+
+  # Configure firewall
+  - ufw allow 22/tcp
+  - ufw --force enable
+
+  # Enable guest agent
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+
+final_message: "Development environment ready. SSH as deploy user to start working."

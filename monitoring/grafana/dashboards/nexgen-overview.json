@@ -1,0 +1,104 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Platform API - Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{job=\"nexgen-api\"}[5m])",
+          "legendFormat": "{{ method }} {{ handler }}"
+        }
+      ]
+    },
+    {
+      "title": "Platform API - P95 Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"nexgen-api\"}[5m]))",
+          "legendFormat": "P95 Latency"
+        }
+      ]
+    },
+    {
+      "title": "PostgreSQL - Active Connections",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count{role=\"primary\"}",
+          "legendFormat": "Active"
+        }
+      ]
+    },
+    {
+      "title": "PostgreSQL - Replication Lag",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "pg_stat_replication_replay_lag_seconds",
+          "legendFormat": "Lag (seconds)"
+        }
+      ]
+    },
+    {
+      "title": "LLM Proxy - Bedrock Requests",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(nexgen_llm_requests_total{backend=\"bedrock\"}[5m])",
+          "legendFormat": "Bedrock req/s"
+        }
+      ]
+    },
+    {
+      "title": "Host - CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"192.168.4.58:9100\"}[5m])) * 100)",
+          "legendFormat": "CPU %"
+        }
+      ]
+    },
+    {
+      "title": "Host - RAM Usage",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "targets": [
+        {
+          "expr": "(1 - node_memory_MemAvailable_bytes{instance=\"192.168.4.58:9100\"} / node_memory_MemTotal_bytes{instance=\"192.168.4.58:9100\"}) * 100",
+          "legendFormat": "RAM %"
+        }
+      ]
+    },
+    {
+      "title": "Host - Storage Usage",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "targets": [
+        {
+          "expr": "(1 - node_filesystem_avail_bytes{mountpoint=\"/\",instance=\"192.168.4.58:9100\"} / node_filesystem_size_bytes{mountpoint=\"/\",instance=\"192.168.4.58:9100\"}) * 100",
+          "legendFormat": "Storage %"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["nexgen", "murph-ai"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "NexGen Platform Overview",
+  "uid": "nexgen-overview"
+}

@@ -1,0 +1,130 @@
+@import '@xterm/xterm/css/xterm.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a3a52 #0a0e1a;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #0a0e1a;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #2a3a52;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: rgba(0, 212, 255, 0.2);
+    color: #e2e8f0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-nexgen-card/60 backdrop-blur-md border border-nexgen-border/40 rounded-xl;
+  }
+
+  .glass-card-hover {
+    @apply glass-card hover:border-nexgen-accent/30 transition-all duration-300;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium font-mono;
+  }
+
+  .status-running {
+    @apply status-badge bg-nexgen-green/20 text-nexgen-green;
+  }
+
+  .status-stopped {
+    @apply status-badge bg-nexgen-red/20 text-nexgen-red;
+  }
+
+  .status-warning {
+    @apply status-badge bg-nexgen-amber/20 text-nexgen-amber;
+  }
+
+  .status-healthy {
+    @apply status-badge bg-nexgen-green/20 text-nexgen-green;
+  }
+
+  .status-unhealthy {
+    @apply status-badge bg-nexgen-red/20 text-nexgen-red;
+  }
+
+  .status-deferred {
+    @apply status-badge bg-nexgen-purple/20 text-nexgen-purple;
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+  }
+
+  .glow-accent-strong {
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.25);
+  }
+
+  .metric-value {
+    @apply text-2xl font-bold font-mono text-nexgen-accent;
+  }
+
+  .metric-label {
+    @apply text-xs text-nexgen-muted uppercase tracking-wider;
+  }
+
+  .section-container {
+    @apply max-w-7xl mx-auto px-6 lg:px-8;
+  }
+
+  .section-padding {
+    @apply py-24 lg:py-32;
+  }
+
+  .heading-xl {
+    @apply text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-nexgen-text;
+  }
+
+  .heading-lg {
+    @apply text-3xl sm:text-4xl font-bold tracking-tight text-nexgen-text;
+  }
+
+  .heading-md {
+    @apply text-xl sm:text-2xl font-semibold text-nexgen-text;
+  }
+
+  .body-lg {
+    @apply text-lg text-nexgen-muted leading-relaxed;
+  }
+
+  .body-md {
+    @apply text-base text-nexgen-muted leading-relaxed;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 bg-nexgen-accent text-nexgen-bg font-semibold rounded-lg
+           hover:bg-nexgen-accent/90 transition-all duration-200 text-sm;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-6 py-3 border border-nexgen-border text-nexgen-text font-medium rounded-lg
+           hover:border-nexgen-accent/50 hover:text-nexgen-accent transition-all duration-200 text-sm;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-nexgen-accent to-nexgen-blue;
+  }
+}

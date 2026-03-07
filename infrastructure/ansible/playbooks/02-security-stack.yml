@@ -1,0 +1,163 @@
+---
+# Phase 2: Security Core — Keycloak, Vault, OPNsense, Wazuh
+
+- name: Deploy Keycloak IAM (VM-IAM-01)
+  hosts: vm-iam-01
+  become: true
+  vars:
+    keycloak_version: "24.0.5"
+    keycloak_db: keycloak
+    keycloak_realm: nexgen
+
+  tasks:
+    - name: Install Java 17
+      apt:
+        name: openjdk-17-jre-headless
+        state: present
+        update_cache: true
+
+    - name: Download Keycloak
+      get_url:
+        url: "https://github.com/keycloak/keycloak/releases/download/{{ keycloak_version }}/keycloak-{{ keycloak_version }}.tar.gz"
+        dest: /opt/keycloak-{{ keycloak_version }}.tar.gz
+
+    - name: Extract Keycloak
+      unarchive:
+        src: /opt/keycloak-{{ keycloak_version }}.tar.gz
+        dest: /opt/
+        remote_src: true
+        creates: /opt/keycloak-{{ keycloak_version }}
+
+    - name: Create keycloak service user
+      user:
+        name: keycloak
+        system: true
+        shell: /usr/sbin/nologin
+        home: /opt/keycloak-{{ keycloak_version }}
+
+    - name: Set ownership
+      file:
+        path: /opt/keycloak-{{ keycloak_version }}
+        owner: keycloak
+        group: keycloak
+        recurse: true
+
+    - name: Create Keycloak systemd service
+      copy:
+        dest: /etc/systemd/system/keycloak.service
+        content: |
+          [Unit]
+          Description=Keycloak Identity Provider
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=keycloak
+          WorkingDirectory=/opt/keycloak-{{ keycloak_version }}
+          ExecStart=/opt/keycloak-{{ keycloak_version }}/bin/kc.sh start --optimized
+          Restart=on-failure
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: restart keycloak
+
+  handlers:
+    - name: restart keycloak
+      systemd:
+        name: keycloak
+        state: restarted
+        daemon_reload: true
+        enabled: true
+
+
+- name: Deploy HashiCorp Vault (VM-SEC-01)
+  hosts: vm-sec-01
+  become: true
+  vars:
+    vault_version: "1.17.6"
+
+  tasks:
+    - name: Add HashiCorp GPG key
+      apt_key:
+        url: https://apt.releases.hashicorp.com/gpg
+        state: present
+
+    - name: Add HashiCorp repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+        state: present
+
+    - name: Install Vault
+      apt:
+        name: vault
+        state: present
+        update_cache: true
+
+    - name: Configure Vault
+      copy:
+        dest: /etc/vault.d/vault.hcl
+        content: |
+          ui = true
+
+          storage "file" {
+            path = "/opt/vault/data"
+          }
+
+          listener "tcp" {
+            address     = "0.0.0.0:8200"
+            tls_disable = false
+            tls_cert_file = "/opt/vault/tls/vault.crt"
+            tls_key_file  = "/opt/vault/tls/vault.key"
+          }
+
+          api_addr = "https://vm-sec-01.mgmt.local:8200"
+
+          # Auto-unseal via AWS KMS
+          seal "awskms" {
+            region     = "us-east-1"
+            kms_key_id = "REPLACE_WITH_KMS_KEY_ID"
+          }
+
+          telemetry {
+            prometheus_retention_time = "24h"
+            disable_hostname = true
+          }
+      notify: restart vault
+
+    - name: Create Vault data directory
+      file:
+        path: /opt/vault/data
+        state: directory
+        owner: vault
+        group: vault
+        mode: '0700'
+
+    - name: Enable and start Vault
+      systemd:
+        name: vault
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart vault
+      systemd:
+        name: vault
+        state: restarted
+
+
+- name: Deploy Wazuh SIEM (VM-SIEM-01)
+  hosts: vm-siem-01
+  become: true
+
+  tasks:
+    - name: Download Wazuh installer
+      get_url:
+        url: https://packages.wazuh.com/4.9/wazuh-install.sh
+        dest: /tmp/wazuh-install.sh
+        mode: '0755'
+
+    - name: Run Wazuh all-in-one installation
+      command: /tmp/wazuh-install.sh -a
+      args:
+        creates: /var/ossec/bin/wazuh-control
