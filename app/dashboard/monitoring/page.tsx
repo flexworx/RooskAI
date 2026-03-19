@@ -14,6 +14,9 @@ export default function MonitoringPage() {
 
   const m = metrics && !Array.isArray(metrics) && typeof metrics.cpu_percent === 'number' ? metrics : null
 
+  const rxMbps = m?.network_rx_mbps ?? 0
+  const txMbps = m?.network_tx_mbps ?? 0
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-nexgen-text flex items-center gap-2">
@@ -24,10 +27,10 @@ export default function MonitoringPage() {
       {/* System Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'CPU', value: m ? `${m.cpu_percent.toFixed(1)}%` : '—', sub: m?.cpu_model ?? '', icon: Cpu, pct: m?.cpu_percent ?? 0 },
-          { label: 'RAM', value: m ? `${m.ram_used_gb.toFixed(1)} / ${m.ram_total_gb.toFixed(0)} GB` : '—', sub: m ? `${((m.ram_used_gb / m.ram_total_gb) * 100).toFixed(0)}% used` : '', icon: MemoryStick, pct: m ? (m.ram_used_gb / m.ram_total_gb) * 100 : 0 },
-          { label: 'Storage', value: m ? `${(m.storage_used_gb / 1000).toFixed(1)} / ${(m.storage_total_gb / 1000).toFixed(1)} TB` : '—', sub: m ? `${((m.storage_used_gb / m.storage_total_gb) * 100).toFixed(0)}% used` : '', icon: HardDrive, pct: m ? (m.storage_used_gb / m.storage_total_gb) * 100 : 0 },
-          { label: 'Network', value: m ? `${(m.network_rx_mbps + m.network_tx_mbps).toFixed(0)} Mbps` : '—', sub: m ? `RX: ${m.network_rx_mbps.toFixed(0)} / TX: ${m.network_tx_mbps.toFixed(0)}` : '', icon: Wifi, pct: 0 },
+          { label: 'CPU', value: m ? `${(m.cpu_percent ?? 0).toFixed(1)}%` : '—', sub: m?.cpu_model ?? '', icon: Cpu, pct: m?.cpu_percent ?? 0 },
+          { label: 'RAM', value: m ? `${(m.ram_used_gb ?? 0).toFixed(1)} / ${(m.ram_total_gb ?? 0).toFixed(0)} GB` : '—', sub: m && m.ram_total_gb ? `${((m.ram_used_gb / m.ram_total_gb) * 100).toFixed(0)}% used` : '', icon: MemoryStick, pct: m && m.ram_total_gb ? (m.ram_used_gb / m.ram_total_gb) * 100 : 0 },
+          { label: 'Storage', value: m ? `${((m.storage_used_gb ?? 0) / 1000).toFixed(1)} / ${((m.storage_total_gb ?? 0) / 1000).toFixed(1)} TB` : '—', sub: m && m.storage_total_gb ? `${((m.storage_used_gb / m.storage_total_gb) * 100).toFixed(0)}% used` : '', icon: HardDrive, pct: m && m.storage_total_gb ? (m.storage_used_gb / m.storage_total_gb) * 100 : 0 },
+          { label: 'Network', value: m ? `${(rxMbps + txMbps).toFixed(1)} Mbps` : '—', sub: m ? `RX: ${rxMbps.toFixed(1)} / TX: ${txMbps.toFixed(1)} Mbps` : '', icon: Wifi, pct: 0 },
         ].map((item) => (
           <div key={item.label} className="glass-card p-5">
             <div className="flex items-center gap-2 mb-3">

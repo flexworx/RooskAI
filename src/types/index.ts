@@ -222,3 +222,59 @@ export interface UserAccount {
   created_at: string | null
   last_login: string | null
 }
+
+// Digital Chief of Staff (DCOS)
+export interface DCOSPriority {
+  tier: 'P0' | 'P1' | 'P2' | 'P3'
+  qps: number
+  urgency: number
+  importance: number
+  category: string
+  sentiment: 'positive' | 'neutral' | 'negative' | 'urgent'
+  deadline: string | null
+  reasoning: string
+}
+
+export interface DCOSDecision {
+  action: 'respond_now' | 'defer' | 'delegate' | 'archive' | 'escalate'
+  delegate_to: string | null
+  draft_response: string | null
+  reasoning: string
+  approved: boolean
+  executed: boolean
+}
+
+export interface QCMessage {
+  id: string
+  channel: 'email' | 'slack' | 'teams' | 'sms' | 'voice' | 'platform'
+  sender_name: string
+  sender_address: string | null
+  subject: string
+  preview: string
+  body: string
+  thread_id: string | null
+  status: 'pending' | 'triaged' | 'actioned' | 'archived'
+  created_at: string | null
+  priority: DCOSPriority | null
+  decision: DCOSDecision | null
+}
+
+export interface DCOSBriefing {
+  id: string
+  briefing_type: 'realtime' | 'daily' | 'weekly'
+  title: string
+  content: string
+  insights: { label: string; text?: string; items?: string[] }[]
+  message_ids: string[]
+  created_at: string | null
+}
+
+export interface DCOSStats {
+  total_messages: number
+  pending: number
+  triaged_today: number
+  p0_count: number
+  p1_count: number
+  avg_qps: number
+  auto_triage_pct: number
+}

@@ -1,8 +1,10 @@
-"""Murph.ai Agent management endpoints — list, register, heartbeat, types."""
+"""Murph.ai Agent management endpoints — list, register, heartbeat, types, actions."""
 
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +15,15 @@ from app.services.audit import log_action
 from app.services.agent_types import list_agent_types, get_agent_type
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
+
+
+class AgentStatusUpdate(BaseModel):
+    status: str  # "active" | "inactive"
+
+
+class AgentCommandRequest(BaseModel):
+    command: str
+    parameters: dict | None = None
 
 
 @router.get("/types")
@@ -139,3 +150,84 @@ async def deregister_agent(
     )
 
     return {"status": "deregistered", "agent_id": agent_id}
+
+
+@router.patch("/{agent_id}/status")
+async def update_agent_status(
+    agent_id: str,
+    body: AgentStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Activate or deactivate an agent."""
+    if body.status not in ("active", "inactive"):
+        raise HTTPException(status_code=400, detail="Status must be 'active' or 'inactive'")
+
+    result = await db.execute(
+        select(MurphAgent).where(MurphAgent.agent_id == agent_id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    agent.status = body.status
+    if body.status == "active":
+        agent.last_heartbeat = datetime.now(timezone.utc)
+        agent.missed_heartbeats = 0
+    await db.commit()
+
+    await log_action(
+        db,
+        action=f"agent.{body.status}",
+        resource_type="murph_agent",
+        resource_id=agent_id,
+        outcome="success",
+    )
+
+    return {"agent_id": agent_id, "status": agent.status}
+
+
+@router.post("/{agent_id}/command")
+async def dispatch_command(
+    agent_id: str,
+    body: AgentCommandRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Dispatch a command to an agent."""
+    result = await db.execute(
+        select(MurphAgent).where(MurphAgent.agent_id == agent_id)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    if agent.status != "active":
+        raise HTTPException(status_code=409, detail="Agent is not active")
+
+    job_id = f"cmd-{uuid.uuid4().hex[:12]}"
+    cmd = MurphCommand(
+        job_id=job_id,
+        agent_id=agent_id,
+        command=body.command,
+        parameters=body.parameters or {},
+        status="queued",
+        progress=0,
+    )
+    db.add(cmd)
+
+    await log_action(
+        db,
+        action="agent.command",
+        resource_type="murph_command",
+        resource_id=job_id,
+        outcome="pending",
+        parameters={"command": body.command, "agent_id": agent_id},
+    )
+
+    return {
+        "job_id": job_id,
+        "agent_id": agent_id,
+        "command": body.command,
+        "status": "queued",
+    }

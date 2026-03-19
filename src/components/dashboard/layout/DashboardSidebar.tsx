@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Server, Database, Network, Shield,
   Bot, Activity, FileCheck, Settings, Boxes, Users, Terminal,
-  X, FileText, Key, PlayCircle, CalendarClock, DollarSign, BookOpen, Brain,
+  X, FileText, Key, PlayCircle, CalendarClock, DollarSign, BookOpen, Brain, Monitor,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -29,6 +29,7 @@ const navItems = [
   { href: '/dashboard/knowledge', icon: BookOpen, label: 'Knowledge Base' },
   { href: '/dashboard/ai-ops', icon: Bot, label: 'AI Operations' },
   { href: '/dashboard/chief-of-staff', icon: Brain, label: 'Chief of Staff AI' },
+  { href: '/dashboard/remote-desktop', icon: Monitor, label: 'Remote Desktop' },
   { href: '/dashboard/terminal', icon: Terminal, label: 'SSH Terminal' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
@@ -42,10 +43,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="p-6 border-b border-nexgen-border/30">
         <Link href="/" className="flex items-center gap-3 group" onClick={onNavigate}>
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-nexgen-accent to-nexgen-blue flex items-center justify-center glow-accent">
-            <span className="text-white font-bold text-lg font-mono">B</span>
+            <span className="text-white font-bold text-lg font-mono">R</span>
           </div>
           <div>
-            <h1 className="text-sm font-bold text-nexgen-text tracking-wide">BYRTH</h1>
+            <h1 className="text-sm font-bold text-nexgen-text tracking-wide">ROOSK</h1>
             <p className="text-[10px] text-nexgen-muted tracking-widest uppercase">NexGen Platform</p>
           </div>
         </Link>

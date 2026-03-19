@@ -58,7 +58,7 @@ export function SystemHealthBar({ metrics }: Props) {
       <MetricGauge label="CPU" value={metrics.cpu_percent ?? 0} max={100} unit="%" icon={Cpu} color="bg-nexgen-accent" />
       <MetricGauge label="RAM" value={metrics.ram_used_gb ?? 0} max={metrics.ram_total_gb ?? 1} unit="GB" icon={MemoryStick} color="bg-nexgen-blue" />
       <MetricGauge label="Storage" value={(metrics.storage_used_gb ?? 0) / 1000} max={(metrics.storage_total_gb ?? 1) / 1000} unit="TB" icon={HardDrive} color="bg-nexgen-purple" />
-      <MetricGauge label="Network" value={(metrics.network_rx_mbps ?? 0) + (metrics.network_tx_mbps ?? 0)} max={10000} unit="Mbps" icon={Wifi} color="bg-nexgen-green" />
+      <MetricGauge label="Network" value={(metrics.network_rx_mbps ?? 0) + (metrics.network_tx_mbps ?? 0)} max={1000} unit="Mbps" icon={Wifi} color="bg-nexgen-green" />
     </div>
   )
 }

@@ -1,9 +1,13 @@
 """System metrics endpoints — real-time data from Proxmox node."""
 
+import logging
+
 from fastapi import APIRouter, Depends
 
 from app.core.security import get_current_user
 from app.services.proxmox import proxmox_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
@@ -21,9 +25,22 @@ async def get_system_metrics(user: dict = Depends(get_current_user)):
         storage_total_bytes = rootfs.get("total", 0)
         storage_used_bytes = rootfs.get("used", 0)
 
-        # Network bytes from Proxmox — cumulative totals since boot
-        netin_bytes = node_status.get("netin", 0)
-        netout_bytes = node_status.get("netout", 0)
+        # Network — get rates from RRD time-series data (bytes/sec averages)
+        rx_mbps = 0.0
+        tx_mbps = 0.0
+        try:
+            rrd_data = await proxmox_client.get_node_rrddata()
+            if rrd_data:
+                # Use the most recent data point that has valid values
+                for entry in reversed(rrd_data):
+                    netin = entry.get("netin")
+                    netout = entry.get("netout")
+                    if netin is not None and netout is not None:
+                        rx_mbps = round(netin * 8 / 1_000_000, 2)
+                        tx_mbps = round(netout * 8 / 1_000_000, 2)
+                        break
+        except Exception as e:
+            logger.warning(f"Failed to fetch network rrddata: {e}")
 
         return {
             "cpu_percent": cpu_percent,
@@ -31,10 +48,8 @@ async def get_system_metrics(user: dict = Depends(get_current_user)):
             "ram_total_gb": round(ram_total_bytes / (1024**3), 1),
             "storage_used_gb": round(storage_used_bytes / (1024**3), 1),
             "storage_total_gb": round(storage_total_bytes / (1024**3), 1),
-            "network_rx_bytes": netin_bytes,
-            "network_tx_bytes": netout_bytes,
-            "network_rx_mb": round(netin_bytes / (1024**2), 1),
-            "network_tx_mb": round(netout_bytes / (1024**2), 1),
+            "network_rx_mbps": rx_mbps,
+            "network_tx_mbps": tx_mbps,
             "uptime_seconds": node_status.get("uptime", 0),
             "loadavg": node_status.get("loadavg", [0, 0, 0]),
             "cpu_count": node_status.get("cpuinfo", {}).get("cpus", 0),
@@ -48,10 +63,8 @@ async def get_system_metrics(user: dict = Depends(get_current_user)):
             "ram_total_gb": 0,
             "storage_used_gb": 0,
             "storage_total_gb": 0,
-            "network_rx_bytes": 0,
-            "network_tx_bytes": 0,
-            "network_rx_mb": 0,
-            "network_tx_mb": 0,
+            "network_rx_mbps": 0,
+            "network_tx_mbps": 0,
             "source": "error",
             "error": str(e),
         }

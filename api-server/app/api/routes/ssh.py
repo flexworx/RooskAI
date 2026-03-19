@@ -60,6 +60,7 @@ KNOWN_HOSTS = [
     {"name": "VM-DB-02 (PostgreSQL Replica)", "host": "10.20.0.21", "port": 22, "username": "deploy", "group": "Control Plane"},
     {"name": "VM-GIT-01 (Gitea)", "host": "10.20.0.30", "port": 22, "username": "deploy", "group": "Control Plane"},
     {"name": "VM-PROXY-01 (Reverse Proxy)", "host": "172.16.40.10", "port": 22, "username": "deploy", "group": "DMZ"},
+    {"name": "Swedbot (AI Agent)", "host": "10.20.0.40", "port": 22, "username": "deploy", "group": "Control Plane"},
 ]
 
 
@@ -193,7 +194,7 @@ async def ssh_proxy(
                             if ctrl.get("type") == "resize":
                                 cols = int(ctrl.get("cols", 80))
                                 rows = int(ctrl.get("rows", 24))
-                                process.change_term_size(cols, rows)
+                                process.change_terminal_size(cols, rows)
                                 continue
                         except (json.JSONDecodeError, ValueError):
                             pass  # Not a control message — send as terminal input

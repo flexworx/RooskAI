@@ -88,6 +88,16 @@ export const getAgent = (agentId: string) =>
   request<import('@/types').AgentDetail>(`/agents/${agentId}`)
 export const deregisterAgent = (agentId: string) =>
   request(`/agents/${agentId}`, { method: 'DELETE' })
+export const setAgentStatus = (agentId: string, status: 'active' | 'inactive') =>
+  request<{ agent_id: string; status: string }>(`/agents/${agentId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+export const dispatchAgentCommand = (agentId: string, command: string, parameters?: Record<string, unknown>) =>
+  request<{ job_id: string; agent_id: string; command: string; status: string }>(`/agents/${agentId}/command`, {
+    method: 'POST',
+    body: JSON.stringify({ command, parameters }),
+  })
 export const getAgentTypes = () =>
   request<{ id: string; name: string; description: string; icon: string; capabilities: string[] }[]>('/agents/types')
 
@@ -170,3 +180,40 @@ export const disableMFA = (totpCode: string) =>
 // SSH Terminal
 export const getSSHHosts = () =>
   request<{ hosts: import('@/types').SSHHost[] }>('/ssh/hosts')
+
+// Digital Chief of Staff (DCOS)
+export const getDCOSMessages = (params?: { status?: string; tier?: string; limit?: number }) => {
+  const q = new URLSearchParams()
+  if (params?.status) q.set('status', params.status)
+  if (params?.tier) q.set('tier', params.tier)
+  if (params?.limit) q.set('limit', String(params.limit))
+  const qs = q.toString()
+  return request<{ messages: import('@/types').QCMessage[]; total: number }>(`/dcos/messages${qs ? `?${qs}` : ''}`)
+}
+export const ingestDCOSMessage = (msg: {
+  channel: string; sender_name: string; sender_address?: string;
+  subject: string; body: string; thread_id?: string
+}) =>
+  request<{ message_id: string; status: string; triage?: Record<string, unknown> }>('/dcos/messages?auto_triage=true', {
+    method: 'POST',
+    body: JSON.stringify(msg),
+  })
+export const triageDCOSMessage = (messageId: string) =>
+  request<Record<string, unknown>>(`/dcos/messages/${messageId}/triage`, { method: 'POST' })
+export const executeDCOSAction = (messageId: string) =>
+  request<{ success: boolean; action: string; message_id: string }>(`/dcos/messages/${messageId}/execute`, { method: 'POST' })
+export const updateDCOSDecision = (messageId: string, action: string) =>
+  request<{ message_id: string; action: string }>(`/dcos/messages/${messageId}/decision`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action }),
+  })
+export const archiveDCOSMessage = (messageId: string) =>
+  request<{ message_id: string; status: string }>(`/dcos/messages/${messageId}/archive`, { method: 'POST' })
+export const deleteDCOSMessage = (messageId: string) =>
+  request<{ message_id: string; deleted: boolean }>(`/dcos/messages/${messageId}`, { method: 'DELETE' })
+export const getDCOSBriefings = (type?: string) =>
+  request<{ briefings: import('@/types').DCOSBriefing[] }>(`/dcos/briefings${type ? `?briefing_type=${type}` : ''}`)
+export const generateDCOSBriefing = (type: string = 'daily', hours: number = 24) =>
+  request<import('@/types').DCOSBriefing>(`/dcos/briefings/generate?briefing_type=${type}&hours=${hours}`, { method: 'POST' })
+export const getDCOSStats = () =>
+  request<import('@/types').DCOSStats>('/dcos/stats')

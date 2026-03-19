@@ -52,11 +52,29 @@ class ProxmoxClient:
             resp.raise_for_status()
             return resp.json()["data"]
 
+    async def get_vm_config(self, vmid: int, node: str = "r7625") -> dict:
+        """Get VM configuration (network, cloud-init, disks)."""
+        async with self._client() as client:
+            resp = await client.get(f"/nodes/{node}/qemu/{vmid}/config")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
     async def create_vm(self, node: str = "r7625", **params: Any) -> dict:
-        """Create a new VM. Requires approval for destructive context."""
+        """Create a new VM. Raises with Proxmox error detail on failure."""
+        logger.info(f"Creating VM with params: {params}")
         async with self._client() as client:
             resp = await client.post(f"/nodes/{node}/qemu", data=params)
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                errors = body.get("errors", {})
+                detail = body.get("data", body)
+                error_msg = f"Proxmox VM create failed ({resp.status_code})"
+                if errors:
+                    error_msg += f": {errors}"
+                elif detail:
+                    error_msg += f": {detail}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
             return resp.json()["data"]
 
     async def start_vm(self, vmid: int, node: str = "r7625") -> dict:
@@ -123,9 +141,33 @@ class ProxmoxClient:
             resp.raise_for_status()
             return resp.json()["data"]
 
+    async def list_isos(self, storage: str = "local", node: str = "r7625") -> list[str]:
+        """List ISO filenames available on a storage."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/storage/{storage}/content",
+                params={"content": "iso"},
+            )
+            resp.raise_for_status()
+            return [
+                item["volid"].split("/", 1)[-1]
+                for item in resp.json()["data"]
+                if item.get("content") == "iso"
+            ]
+
     async def get_network(self, node: str = "r7625") -> list[dict]:
         async with self._client() as client:
             resp = await client.get(f"/nodes/{node}/network")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def get_node_rrddata(self, node: str = "r7625", timeframe: str = "hour") -> list[dict]:
+        """Fetch RRD time-series data (includes netin/netout rates in bytes/sec)."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/rrddata",
+                params={"timeframe": timeframe, "cf": "AVERAGE"},
+            )
             resp.raise_for_status()
             return resp.json()["data"]
 

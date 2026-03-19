@@ -1,4 +1,4 @@
-"""SQLAlchemy models — platform state, VMs, audit logs, agents."""
+"""SQLAlchemy models — platform state, VMs, audit logs, agents, DCOS."""
 
 import uuid
 from datetime import datetime, timezone
@@ -204,3 +204,82 @@ class LLMRequest(Base):
     sanitized = Column(Boolean, default=False)
     sanitization_actions = Column(JSON)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Digital Chief of Staff (DCOS) — Quantum Communications v2
+# ---------------------------------------------------------------------------
+
+class QCMessage(Base):
+    """Unified inbox — every inbound communication normalized to one schema."""
+    __tablename__ = "qc_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    channel = Column(String(20), nullable=False, index=True)  # email, slack, teams, sms, voice, platform
+    sender_name = Column(String(200), nullable=False)
+    sender_address = Column(String(300))  # email, phone, slack handle
+    subject = Column(String(500), nullable=False)
+    body = Column(Text, nullable=False)
+    preview = Column(String(500))
+    thread_id = Column(String(200))  # for grouping conversations
+    raw_metadata = Column(JSON)  # channel-specific fields
+    status = Column(
+        Enum("pending", "triaged", "actioned", "archived", name="qc_msg_status"),
+        default="pending",
+    )
+    created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
+
+    priority = relationship("DCOSPriority", back_populates="message", uselist=False)
+    decision = relationship("DCOSDecision", back_populates="message", uselist=False)
+
+
+class DCOSPriority(Base):
+    """Priority scoring — AI-assigned urgency/importance per message."""
+    __tablename__ = "dcos_priorities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("qc_messages.id"), nullable=False, unique=True)
+    tier = Column(String(4), nullable=False, index=True)  # P0, P1, P2, P3
+    urgency = Column(Integer, default=50)  # 0–100
+    importance = Column(Integer, default=50)  # 0–100
+    qps = Column(Integer, default=50)  # quantum priority score (composite)
+    category = Column(String(50))  # infrastructure, security, business, compliance, personal
+    sentiment = Column(String(20))  # positive, neutral, negative, urgent
+    deadline = Column(DateTime(timezone=True))
+    reasoning = Column(Text)  # AI explanation for the score
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    message = relationship("QCMessage", back_populates="priority")
+
+
+class DCOSDecision(Base):
+    """Decision log — what action the AI recommends and whether it was executed."""
+    __tablename__ = "dcos_decisions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("qc_messages.id"), nullable=False, unique=True)
+    action = Column(String(30), nullable=False)  # respond_now, defer, delegate, archive, escalate
+    delegate_to = Column(String(100))  # agent_id or user
+    draft_response = Column(Text)
+    reasoning = Column(Text)
+    approved = Column(Boolean, default=False)
+    approved_by = Column(String(100))
+    executed = Column(Boolean, default=False)
+    executed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    message = relationship("QCMessage", back_populates="decision")
+
+
+class DCOSBriefing(Base):
+    """Generated briefings — real-time alerts, daily digests, weekly reports."""
+    __tablename__ = "dcos_briefings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    briefing_type = Column(String(20), nullable=False)  # realtime, daily, weekly
+    title = Column(String(300), nullable=False)
+    content = Column(Text, nullable=False)
+    insights = Column(JSON)  # structured insight bullets
+    message_ids = Column(JSON, default=list)  # messages covered
+    generated_by = Column(String(50), default="bedrock")
+    created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
