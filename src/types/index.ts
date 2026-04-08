@@ -278,3 +278,40 @@ export interface DCOSStats {
   avg_qps: number
   auto_triage_pct: number
 }
+
+// Runbooks
+export interface RunbookStep {
+  id: string
+  step_order: number
+  action: string
+  target: string | null
+  step_type: string
+}
+
+export interface Runbook {
+  id: string
+  name: string
+  description: string | null
+  trigger: 'manual' | 'alert' | 'schedule' | 'threshold'
+  status: 'ready' | 'running' | 'completed' | 'failed'
+  last_run: string | null
+  created_by: string | null
+  created_at: string | null
+  steps: RunbookStep[]
+}
+
+// Guacamole / Remote Desktop
+export interface GuacConnection {
+  id: string
+  vmid: number | null
+  vm_name: string | null
+  vm_status: string | null
+  name: string
+  protocol: 'rdp' | 'vnc' | 'ssh'
+  host: string
+  port: number
+  username: string | null
+  guac_token: string | null
+  notes: string | null
+  created_at: string | null
+}

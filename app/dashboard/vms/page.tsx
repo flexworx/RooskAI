@@ -6,6 +6,7 @@ import { useApi } from '@/hooks/useApi'
 import { getVMs, vmAction } from '@/services/api'
 import { DashboardSearch } from '@/components/ui/DashboardSearch'
 import { ExportButton } from '@/components/ui/ExportButton'
+import { VMCreateWizard } from '@/components/dashboard/VMCreateWizard'
 import { clsx } from 'clsx'
 import type { VM } from '@/types'
 
@@ -21,6 +22,7 @@ export default function VirtualMachinesPage() {
   const { data, loading, refetch } = useApi<VM[]>(fetcher, 15000)
   const [acting, setActing] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [showWizard, setShowWizard] = useState(false)
 
   const allVms = Array.isArray(data) ? data : []
   const vms = useMemo(() => {
@@ -57,7 +59,7 @@ export default function VirtualMachinesPage() {
             filename="vms-export"
             columns={[{ key: 'name', label: 'Name' }, { key: 'vmid', label: 'VMID' }, { key: 'status', label: 'Status' }, { key: 'ip', label: 'IP Address' }, { key: 'cpu', label: 'CPU Cores' }, { key: 'ram_gb', label: 'RAM (GB)' }, { key: 'disk_gb', label: 'Disk (GB)' }, { key: 'vlan', label: 'VLAN' }, { key: 'os', label: 'OS' }]}
           />
-          <button className="btn-primary text-xs py-2 px-4">
+          <button onClick={() => setShowWizard(true)} className="btn-primary text-xs py-2 px-4">
             <Plus size={14} /> Create VM
           </button>
         </div>
@@ -123,8 +125,18 @@ export default function VirtualMachinesPage() {
         <div className="glass-card p-12 text-center">
           <Server size={40} className="text-nexgen-muted mx-auto mb-4" />
           <h3 className="text-sm font-semibold text-nexgen-text mb-2">No Virtual Machines</h3>
-          <p className="text-xs text-nexgen-muted">Connect Proxmox to sync inventory, or create a VM manually.</p>
+          <p className="text-xs text-nexgen-muted mb-4">Connect Proxmox to sync inventory, or create a VM manually.</p>
+          <button onClick={() => setShowWizard(true)} className="btn-primary text-xs py-2 px-4">
+            <Plus size={14} /> Create VM
+          </button>
         </div>
+      )}
+
+      {showWizard && (
+        <VMCreateWizard
+          onClose={() => setShowWizard(false)}
+          onCreated={() => { setShowWizard(false); refetch() }}
+        />
       )}
     </div>
   )

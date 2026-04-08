@@ -283,3 +283,86 @@ class DCOSBriefing(Base):
     message_ids = Column(JSON, default=list)  # messages covered
     generated_by = Column(String(50), default="bedrock")
     created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+# ---------------------------------------------------------------------------
+# Runbooks
+# ---------------------------------------------------------------------------
+
+class Runbook(Base):
+    """Saved automation playbooks — manual, alert-triggered, scheduled, or threshold."""
+    __tablename__ = "runbooks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    trigger = Column(
+        Enum("manual", "alert", "schedule", "threshold", name="runbook_trigger"),
+        default="manual",
+    )
+    status = Column(
+        Enum("ready", "running", "completed", "failed", name="runbook_status"),
+        default="ready",
+    )
+    last_run = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    steps = relationship("RunbookStep", back_populates="runbook", order_by="RunbookStep.step_order")
+
+
+class RunbookStep(Base):
+    """Individual steps within a runbook."""
+    __tablename__ = "runbook_steps"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    runbook_id = Column(UUID(as_uuid=True), ForeignKey("runbooks.id", ondelete="CASCADE"), nullable=False)
+    step_order = Column(Integer, nullable=False)
+    action = Column(String(500), nullable=False)
+    target = Column(String(300))
+    step_type = Column(String(30), default="shell")  # shell, api, notification, approval
+
+    runbook = relationship("Runbook", back_populates="steps")
+
+
+# ---------------------------------------------------------------------------
+# Guacamole / Remote Desktop connections
+# ---------------------------------------------------------------------------
+
+class GuacamoleConnection(Base):
+    """Registered remote desktop connections — maps VMs to Guacamole tokens/config."""
+    __tablename__ = "guacamole_connections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    vm_id = Column(UUID(as_uuid=True), ForeignKey("virtual_machines.id", ondelete="SET NULL"), nullable=True)
+    vmid = Column(Integer, nullable=True, index=True)
+    name = Column(String(200), nullable=False)
+    protocol = Column(String(10), default="rdp")  # rdp, vnc, ssh
+    host = Column(String(200))
+    port = Column(Integer)
+    username = Column(String(100), nullable=True)
+    guac_token = Column(String(500), nullable=True)  # base64 Guacamole client token
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Contact / Demo requests
+# ---------------------------------------------------------------------------
+
+class ContactRequest(Base):
+    """Persisted demo/contact form submissions."""
+    __tablename__ = "contact_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reference_id = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    email = Column(String(255), nullable=False)
+    company = Column(String(200), nullable=False)
+    phone = Column(String(30), nullable=True)
+    interest = Column(String(100), nullable=False)
+    infra_size = Column(String(50), nullable=True)
+    message = Column(Text, nullable=True)
+    status = Column(String(20), default="new")  # new, contacted, closed
+    created_at = Column(DateTime(timezone=True), default=utcnow)

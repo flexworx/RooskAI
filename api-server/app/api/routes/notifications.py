@@ -11,9 +11,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Set
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
+from sqlalchemy import select, desc
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.core.security import decode_token
+from app.models.models import AuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -121,10 +125,33 @@ async def notifications_ws(
 
 
 @router.get("/")
-async def get_notifications():
-    """Return recent notifications (placeholder — will integrate with DB)."""
+async def get_notifications(
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return recent platform events as notifications, sourced from the audit log."""
+    result = await db.execute(
+        select(AuditLog)
+        .order_by(desc(AuditLog.timestamp))
+        .limit(limit)
+    )
+    logs = result.scalars().all()
+
+    notifications = [
+        {
+            "id": str(log.id),
+            "type": "audit",
+            "action": log.action,
+            "resource_type": log.resource_type,
+            "resource_id": log.resource_id,
+            "outcome": log.outcome,
+            "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+        }
+        for log in logs
+    ]
+
     return {
-        "notifications": [],
-        "unread_count": 0,
+        "notifications": notifications,
+        "unread_count": len(notifications),
         "connected_users": len(_connections),
     }

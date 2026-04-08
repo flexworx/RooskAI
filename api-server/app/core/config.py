@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # Monitoring
     PROMETHEUS_ENABLED: bool = True
     GRAFANA_URL: str = "http://vm-mon-01.mgmt.local:3000"
+    NETDATA_ENABLED: bool = False
+    NETDATA_URL: str = "http://localhost:19999"  # Netdata agent on Proxmox host
 
     # Security
     CORS_ORIGINS: list[str] = ["https://dashboard.nexgen.local"]

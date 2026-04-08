@@ -5,13 +5,14 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Server, Database, Network, Shield,
   Bot, Activity, FileCheck, Settings, Boxes, Users, Terminal,
-  X, FileText, Key, PlayCircle, CalendarClock, DollarSign, BookOpen, Brain, Monitor,
+  X, FileText, Key, PlayCircle, CalendarClock, DollarSign, BookOpen, Brain, Monitor, Wand2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/dashboard/provision', icon: Wand2, label: 'Provision' },
   { href: '/dashboard/vms', icon: Server, label: 'Virtual Machines' },
   { href: '/dashboard/services', icon: Boxes, label: 'Services' },
   { href: '/dashboard/databases', icon: Database, label: 'Databases' },

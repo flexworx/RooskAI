@@ -1,10 +1,14 @@
-"""Contact form endpoint — receives demo requests."""
+"""Contact form endpoint — receives demo requests and persists them."""
 
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.models.models import ContactRequest as ContactRequestModel
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +32,26 @@ class ContactResponse(BaseModel):
 
 
 @router.post("/contact", response_model=ContactResponse)
-async def submit_contact(req: ContactRequest):
-    """Process a demo request / contact form submission."""
+async def submit_contact(req: ContactRequest, db: AsyncSession = Depends(get_db)):
+    """Process a demo request / contact form submission and persist to database."""
     ref_id = f"BYR-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
-    logger.info(
-        "Contact form submission ref=%s name=%s company=%s interest=%s",
-        ref_id,
-        req.name,
-        req.company,
-        req.interest,
+
+    record = ContactRequestModel(
+        reference_id=ref_id,
+        name=req.name,
+        email=req.email,
+        company=req.company,
+        phone=req.phone,
+        interest=req.interest,
+        infra_size=req.infra_size,
+        message=req.message,
+        status="new",
     )
-    # TODO: Persist to database, send notification email
+    db.add(record)
+    await db.commit()
+
+    logger.info(
+        "Contact form persisted ref=%s name=%s company=%s interest=%s",
+        ref_id, req.name, req.company, req.interest,
+    )
     return ContactResponse(reference_id=ref_id)

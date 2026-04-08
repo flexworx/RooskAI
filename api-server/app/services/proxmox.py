@@ -1,5 +1,6 @@
 """Proxmox VE API client — VM lifecycle management."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -229,6 +230,181 @@ class ProxmoxClient:
         except Exception as e:
             logger.warning(f"Proxmox health check failed: {e}")
             return {"status": "unhealthy", "error": str(e)}
+
+    # --- Task / UPID Management ---
+
+    async def get_task_status(self, upid: str, node: str = "r7625") -> dict:
+        """Get the current status of a Proxmox task by UPID."""
+        async with self._client() as client:
+            resp = await client.get(f"/nodes/{node}/tasks/{upid}/status")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def get_task_log(self, upid: str, node: str = "r7625", limit: int = 50) -> list[dict]:
+        """Get log output for a Proxmox task."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/tasks/{upid}/log",
+                params={"limit": limit},
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def poll_task(
+        self, upid: str, node: str = "r7625", timeout: int = 120, interval: float = 2.0
+    ) -> dict:
+        """Poll a Proxmox UPID until it finishes or times out.
+
+        Returns the final task status dict with keys: status, exitstatus, type, upid.
+        Raises RuntimeError if the task fails or times out.
+        """
+        elapsed = 0.0
+        while elapsed < timeout:
+            status = await self.get_task_status(upid, node)
+            if status.get("status") == "stopped":
+                exit_status = status.get("exitstatus", "")
+                if exit_status == "OK":
+                    return status
+                raise RuntimeError(
+                    f"Proxmox task {upid} failed: {exit_status}"
+                )
+            await asyncio.sleep(interval)
+            elapsed += interval
+        raise TimeoutError(f"Proxmox task {upid} did not complete within {timeout}s")
+
+    async def list_tasks(self, node: str = "r7625", limit: int = 50) -> list[dict]:
+        """List recent tasks on a node."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/tasks",
+                params={"limit": limit},
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    # --- Per-VM Metrics ---
+
+    async def get_vm_rrddata(
+        self, vmid: int, node: str = "r7625", timeframe: str = "hour"
+    ) -> list[dict]:
+        """Fetch RRD time-series data for a specific VM (CPU, mem, disk, net)."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/qemu/{vmid}/rrddata",
+                params={"timeframe": timeframe, "cf": "AVERAGE"},
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def get_vm_current_metrics(self, vmid: int, node: str = "r7625") -> dict:
+        """Get the latest single data point of VM metrics from RRD."""
+        data = await self.get_vm_rrddata(vmid, node, timeframe="hour")
+        # Walk in reverse to find the most recent non-null entry
+        for entry in reversed(data):
+            if entry.get("cpu") is not None:
+                mem_used = entry.get("mem", 0) or 0
+                mem_max = entry.get("maxmem", 0) or 0
+                disk_read = entry.get("diskread", 0) or 0
+                disk_write = entry.get("diskwrite", 0) or 0
+                net_in = entry.get("netin", 0) or 0
+                net_out = entry.get("netout", 0) or 0
+                return {
+                    "cpu_percent": round((entry.get("cpu", 0) or 0) * 100, 1),
+                    "mem_used_mb": round(mem_used / (1024 ** 2), 1),
+                    "mem_total_mb": round(mem_max / (1024 ** 2), 1),
+                    "mem_percent": round(mem_used / mem_max * 100, 1) if mem_max else 0,
+                    "disk_read_mbps": round(disk_read * 8 / 1_000_000, 3),
+                    "disk_write_mbps": round(disk_write * 8 / 1_000_000, 3),
+                    "net_in_mbps": round(net_in * 8 / 1_000_000, 3),
+                    "net_out_mbps": round(net_out * 8 / 1_000_000, 3),
+                }
+        return {}
+
+    # --- Snapshot Management ---
+
+    async def list_snapshots(self, vmid: int, node: str = "r7625") -> list[dict]:
+        """List all snapshots for a VM."""
+        async with self._client() as client:
+            resp = await client.get(f"/nodes/{node}/qemu/{vmid}/snapshot")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def delete_snapshot(self, vmid: int, snapname: str, node: str = "r7625") -> str:
+        """Delete a VM snapshot. Returns UPID."""
+        async with self._client() as client:
+            resp = await client.delete(f"/nodes/{node}/qemu/{vmid}/snapshot/{snapname}")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def rollback_snapshot(self, vmid: int, snapname: str, node: str = "r7625") -> str:
+        """Rollback VM to a snapshot. Returns UPID."""
+        async with self._client() as client:
+            resp = await client.post(f"/nodes/{node}/qemu/{vmid}/snapshot/{snapname}/rollback")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    # --- LXC Metrics ---
+
+    async def get_container_rrddata(
+        self, vmid: int, node: str = "r7625", timeframe: str = "hour"
+    ) -> list[dict]:
+        """Fetch RRD time-series data for an LXC container."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/lxc/{vmid}/rrddata",
+                params={"timeframe": timeframe, "cf": "AVERAGE"},
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def create_container(self, node: str = "r7625", **params: Any) -> str:
+        """Create a new LXC container. Returns UPID."""
+        async with self._client() as client:
+            resp = await client.post(f"/nodes/{node}/lxc", data=params)
+            if resp.status_code >= 400:
+                body = resp.json() if "application/json" in resp.headers.get("content-type", "") else {}
+                raise RuntimeError(f"LXC create failed ({resp.status_code}): {body.get('errors', body)}")
+            return resp.json()["data"]
+
+    async def restart_container(self, vmid: int, node: str = "r7625") -> str:
+        """Restart an LXC container. Returns UPID."""
+        async with self._client() as client:
+            resp = await client.post(f"/nodes/{node}/lxc/{vmid}/status/restart")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def delete_container(self, vmid: int, node: str = "r7625") -> str:
+        """Delete an LXC container. DESTRUCTIVE. Returns UPID."""
+        async with self._client() as client:
+            resp = await client.delete(f"/nodes/{node}/lxc/{vmid}")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def get_container_config(self, vmid: int, node: str = "r7625") -> dict:
+        """Get LXC container configuration."""
+        async with self._client() as client:
+            resp = await client.get(f"/nodes/{node}/lxc/{vmid}/config")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def list_container_snapshots(self, vmid: int, node: str = "r7625") -> list[dict]:
+        """List snapshots for an LXC container."""
+        async with self._client() as client:
+            resp = await client.get(f"/nodes/{node}/lxc/{vmid}/snapshot")
+            resp.raise_for_status()
+            return resp.json()["data"]
+
+    async def list_storage_content(
+        self, storage: str = "local", content_type: str = "vztmpl", node: str = "r7625"
+    ) -> list[dict]:
+        """List storage content (e.g. LXC templates, ISOs)."""
+        async with self._client() as client:
+            resp = await client.get(
+                f"/nodes/{node}/storage/{storage}/content",
+                params={"content": content_type},
+            )
+            resp.raise_for_status()
+            return resp.json()["data"]
 
 
 proxmox_client = ProxmoxClient()

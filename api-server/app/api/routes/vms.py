@@ -297,4 +297,83 @@ async def vm_action(
         rollback_plan=f"Reverse action on VM {vm.vmid}",
     )
 
-    return {"status": "ok", "action": action.action, "vmid": vm.vmid, "result": result_data}
+    # Surface the UPID so the caller can poll /api/tasks/{upid} for completion
+    upid = result_data if isinstance(result_data, str) else None
+    return {
+        "status": "ok",
+        "action": action.action,
+        "vmid": vm.vmid,
+        "result": result_data,
+        "task_upid": upid,
+        "poll_url": f"/api/tasks/{upid}" if upid else None,
+    }
+
+
+@router.get("/{vm_id}/metrics")
+async def get_vm_metrics(
+    vm_id: UUID,
+    timeframe: str = "hour",
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Live CPU, RAM, disk I/O, and network metrics for a specific VM.
+
+    Args:
+        timeframe: 'hour' | 'day' | 'week' | 'month' | 'year'
+    """
+    result = await db.execute(
+        select(VirtualMachine).where(VirtualMachine.id == vm_id)
+    )
+    vm = result.scalar_one_or_none()
+    if not vm:
+        raise HTTPException(status_code=404, detail="VM not found")
+
+    try:
+        current = await proxmox_client.get_vm_current_metrics(vm.vmid)
+        return {
+            "vmid": vm.vmid,
+            "name": vm.name,
+            "timeframe": timeframe,
+            "current": current,
+            "source": "proxmox_rrd",
+        }
+    except Exception as e:
+        logger.warning(f"Failed to fetch metrics for VM {vm.vmid}: {e}")
+        raise HTTPException(status_code=502, detail=f"Could not fetch VM metrics: {e}")
+
+
+@router.get("/{vm_id}/snapshots")
+async def list_vm_snapshots(
+    vm_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """List all snapshots for a VM from Proxmox."""
+    result = await db.execute(
+        select(VirtualMachine).where(VirtualMachine.id == vm_id)
+    )
+    vm = result.scalar_one_or_none()
+    if not vm:
+        raise HTTPException(status_code=404, detail="VM not found")
+
+    try:
+        snapshots = await proxmox_client.list_snapshots(vm.vmid)
+        # Filter out the implicit 'current' state entry Proxmox always includes
+        return {
+            "vmid": vm.vmid,
+            "name": vm.name,
+            "snapshots": [
+                {
+                    "name": s.get("name"),
+                    "description": s.get("description", ""),
+                    "parent": s.get("parent"),
+                    "snaptime": s.get("snaptime"),
+                    "vmstate": s.get("vmstate", 0),
+                }
+                for s in snapshots
+                if s.get("name") != "current"
+            ],
+        }
+    except Exception as e:
+        logger.warning(f"Failed to list snapshots for VM {vm.vmid}: {e}")
+        raise HTTPException(status_code=502, detail=f"Could not list snapshots: {e}")

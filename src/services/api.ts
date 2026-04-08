@@ -260,3 +260,58 @@ export const generateDCOSBriefing = (type: string = 'daily', hours: number = 24)
   request<import('@/types').DCOSBriefing>(`/dcos/briefings/generate?briefing_type=${type}&hours=${hours}`, { method: 'POST' })
 export const getDCOSStats = () =>
   request<import('@/types').DCOSStats>('/dcos/stats')
+
+// Runbooks
+export const getRunbooks = () =>
+  request<import('@/types').Runbook[]>('/runbooks/')
+export const getRunbook = (id: string) =>
+  request<import('@/types').Runbook>(`/runbooks/${id}`)
+export const createRunbook = (data: {
+  name: string
+  description?: string
+  trigger?: string
+  steps?: { action: string; target?: string; step_type?: string }[]
+}) =>
+  request<import('@/types').Runbook>('/runbooks/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+export const updateRunbook = (id: string, data: Record<string, unknown>) =>
+  request<import('@/types').Runbook>(`/runbooks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+export const deleteRunbook = (id: string) =>
+  request<{ runbook_id: string; deleted: boolean }>(`/runbooks/${id}`, { method: 'DELETE' })
+export const executeRunbook = (id: string) =>
+  request<{ runbook_id: string; name: string; status: string; steps_count: number; executed_at: string; message: string }>(
+    `/runbooks/${id}/execute`,
+    { method: 'POST' },
+  )
+
+// Remote Desktop / Guacamole
+export const getGuacConnections = () =>
+  request<import('@/types').GuacConnection[]>('/remote-desktop/connections')
+export const createGuacConnection = (data: {
+  name: string
+  protocol?: string
+  host: string
+  port?: number
+  username?: string
+  guac_token?: string
+  vmid?: number
+  notes?: string
+}) =>
+  request<import('@/types').GuacConnection>('/remote-desktop/connections', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+export const updateGuacConnection = (id: string, data: Record<string, unknown>) =>
+  request<import('@/types').GuacConnection>(`/remote-desktop/connections/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+export const deleteGuacConnection = (id: string) =>
+  request<{ connection_id: string; deleted: boolean }>(`/remote-desktop/connections/${id}`, {
+    method: 'DELETE',
+  })

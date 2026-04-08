@@ -14,7 +14,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.middleware.audit_middleware import AuditMiddleware
-from app.api.routes import auth, health, vms, llm, murph, databases, security, network, metrics, agents, compliance, services, users, ssh, contact, notifications, dcos
+from app.api.routes import auth, health, vms, llm, murph, databases, security, network, metrics, agents, compliance, services, users, ssh, contact, notifications, dcos, runbooks, remote_desktop, lxc, tasks
 
 settings = get_settings()
 
@@ -66,7 +66,6 @@ if settings.PROMETHEUS_ENABLED:
 
 # Routes
 app.include_router(auth.router, prefix="/api")
-app.include_router(health.router)
 app.include_router(health.router, prefix="/api")
 app.include_router(vms.router, prefix="/api")
 app.include_router(llm.router, prefix="/api")
@@ -83,6 +82,10 @@ app.include_router(ssh.router, prefix="/api")
 app.include_router(contact.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(dcos.router, prefix="/api")
+app.include_router(runbooks.router, prefix="/api")
+app.include_router(remote_desktop.router, prefix="/api")
+app.include_router(lxc.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
 
 
 @app.get("/")

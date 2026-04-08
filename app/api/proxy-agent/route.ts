@@ -30,28 +30,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ response: data.response, backend: data.backend })
     }
 
-    // If LLM endpoint fails, try the agent command endpoint
-    const agentResp = await fetch(`${API_URL}/api/agents/command`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authHeader ? { Authorization: authHeader } : {}),
-      },
-      body: JSON.stringify({
-        agent_id: 'platform-ops',
-        command: command,
-        parameters: {},
-      }),
-    })
-
-    if (agentResp.ok) {
-      const data = await agentResp.json()
-      return NextResponse.json(data)
-    }
-
+    // LLM endpoint returned non-OK — surface the error to the caller
+    const errBody = await resp.json().catch(() => ({ detail: resp.statusText }))
     return NextResponse.json(
-      { response: `Command received: "${command}". Backend services are starting up. Try again shortly.` },
-      { status: 200 }
+      { error: errBody.detail || `LLM error: ${resp.status}` },
+      { status: resp.status }
     )
   } catch (err) {
     return NextResponse.json(
