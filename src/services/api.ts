@@ -261,6 +261,23 @@ export const generateDCOSBriefing = (type: string = 'daily', hours: number = 24)
 export const getDCOSStats = () =>
   request<import('@/types').DCOSStats>('/dcos/stats')
 
+// VM per-resource metrics
+export const getVMMetrics = (id: string) =>
+  request<{
+    vmid: number
+    name: string
+    current: {
+      cpu_percent: number
+      mem_used_mb: number
+      mem_total_mb: number
+      mem_percent: number
+      disk_read_mbps: number
+      disk_write_mbps: number
+      net_in_mbps: number
+      net_out_mbps: number
+    }
+  }>(`/vms/${id}/metrics`)
+
 // Runbooks
 export const getRunbooks = () =>
   request<import('@/types').Runbook[]>('/runbooks/')
