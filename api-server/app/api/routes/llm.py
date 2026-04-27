@@ -6,6 +6,7 @@ Injects live platform state and domain knowledge into every request.
 """
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
@@ -102,11 +103,24 @@ Current Platform State:
         combined_context = f"{agent_prompt_addon}\n\n{combined_context}"
     action_prompt = build_action_system_prompt(knowledge_context=combined_context)
 
+    # Build conversation history for multi-turn memory
+    conversation_history = None
+    if request.messages:
+        conversation_history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in request.messages
+            if msg.role in ("user", "assistant")
+        ]
+
+    # Generate or reuse conversation_id for threading
+    conversation_id = request.conversation_id or str(uuid.uuid4())
+
     result = await llm_proxy.complete(
         prompt=request.prompt,
         context=request.context,
         force_backend=request.force_backend,
         system_prompt=action_prompt,
+        conversation_history=conversation_history,
     )
 
     response_text = result["response"]
@@ -155,6 +169,7 @@ Current Platform State:
         sanitization_actions=result.get("sanitization_actions", []),
         action_executed=action_executed,
         action_result=action_result,
+        conversation_id=conversation_id,
     )
 
 

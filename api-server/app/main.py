@@ -30,8 +30,28 @@ async def lifespan(app: FastAPI):
     logging.info("Starting Murph.AI NexGen Platform v%s", settings.APP_VERSION)
     await init_db()
     logging.info("Database initialized")
+
+    # Auto-generate platform SSH key if missing
+    try:
+        from app.api.routes.ssh import _ensure_platform_ssh_key
+        created, pub_key = _ensure_platform_ssh_key()
+        if created:
+            logging.info("Platform SSH key generated: %s", pub_key[:60] + "...")
+        else:
+            logging.info("Platform SSH key already exists")
+    except Exception as e:
+        logging.warning("SSH key setup failed (non-fatal): %s", e)
+
+    # Start AgentCore — manages platform agent heartbeats
+    from app.services.agent_core import start as start_agent_core
+    await start_agent_core()
+    logging.info("AgentCore started — platform agents are live")
+
     yield
+
     # Shutdown
+    from app.services.agent_core import stop as stop_agent_core
+    await stop_agent_core()
     logging.info("Shutting down Murph.AI NexGen Platform")
 
 

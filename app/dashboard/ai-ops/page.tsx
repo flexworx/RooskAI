@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx } from 'clsx'
-import { llmComplete } from '@/services/api'
+import { llmComplete, type ConversationMessage } from '@/services/api'
 
 interface ActionResult {
   action: string
@@ -24,6 +24,12 @@ interface Message {
   timestamp: string
   actionResult?: ActionResult
   agent?: string
+}
+
+// Conversation state for multi-turn memory
+interface ConversationState {
+  id: string | null
+  messages: ConversationMessage[]
 }
 
 const QUICK_ACTIONS = [
@@ -100,6 +106,7 @@ export default function AIOpsConsolePage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState('generic')
+  const [conversation, setConversation] = useState<ConversationState>({ id: null, messages: [] })
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'system',
@@ -133,10 +140,27 @@ Just tell me what you want to build or manage in plain English.`,
     setLoading(true)
 
     try {
-      const result = await llmComplete(command, {}, selectedAgent)
+      // Send conversation history for multi-turn memory
+      const result = await llmComplete(
+        command,
+        {},
+        selectedAgent,
+        conversation.id || undefined,
+        conversation.messages,
+      )
       const responseText = result.action_executed
         ? `${result.response}`
         : result.response
+
+      // Update conversation state with new turn
+      setConversation((prev) => ({
+        id: result.conversation_id || prev.id,
+        messages: [
+          ...prev.messages,
+          { role: 'user' as const, content: command },
+          { role: 'assistant' as const, content: responseText },
+        ],
+      }))
 
       setMessages((m) => [...m, {
         role: 'assistant',
@@ -155,7 +179,7 @@ Just tell me what you want to build or manage in plain English.`,
       setLoading(false)
       inputRef.current?.focus()
     }
-  }, [input, loading, selectedAgent])
+  }, [input, loading, selectedAgent, conversation])
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)]">

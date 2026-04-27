@@ -9,9 +9,12 @@ import asyncio
 import ipaddress
 import json
 import logging
+import os
+import subprocess
+from pathlib import Path
 
 import asyncssh
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Security
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, Security
 
 from app.core.security import decode_token, get_current_user
 from app.core.config import get_settings
@@ -62,6 +65,90 @@ KNOWN_HOSTS = [
     {"name": "VM-PROXY-01 (Reverse Proxy)", "host": "172.16.40.10", "port": 22, "username": "deploy", "group": "DMZ"},
     {"name": "Swedbot (AI Agent)", "host": "10.20.0.40", "port": 22, "username": "deploy", "group": "Control Plane"},
 ]
+
+
+def _ensure_platform_ssh_key() -> tuple[bool, str]:
+    """Ensure the platform SSH key exists, generating it if needed.
+
+    Returns (created: bool, public_key: str).
+    """
+    key_path = Path(settings.BACKUP_SSH_KEY_PATH)
+    pub_path = key_path.with_suffix(".pub")
+
+    # Create directory if needed
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(key_path.parent, 0o700)
+
+    if key_path.exists() and pub_path.exists():
+        return False, pub_path.read_text().strip()
+
+    # Generate Ed25519 key pair
+    subprocess.run(
+        [
+            "ssh-keygen",
+            "-t", "ed25519",
+            "-f", str(key_path),
+            "-N", "",  # no passphrase
+            "-C", "roosk-platform@nexgen",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    os.chmod(key_path, 0o600)
+    os.chmod(pub_path, 0o644)
+
+    logger.info(f"Platform SSH key generated at {key_path}")
+    return True, pub_path.read_text().strip()
+
+
+@router.post("/setup-key")
+async def setup_platform_key(
+    user: dict = Depends(get_current_user),
+):
+    """Generate the platform SSH key pair if it does not exist.
+
+    Returns the public key for deployment to target VMs via authorized_keys.
+    Safe to call multiple times — idempotent.
+    """
+    try:
+        created, public_key = _ensure_platform_ssh_key()
+        return {
+            "created": created,
+            "key_path": settings.BACKUP_SSH_KEY_PATH,
+            "public_key": public_key,
+            "message": "Key generated successfully" if created else "Key already exists",
+        }
+    except subprocess.CalledProcessError as e:
+        logger.error(f"SSH key generation failed: {e.stderr}")
+        raise HTTPException(status_code=500, detail=f"Key generation failed: {e.stderr.decode()}")
+    except Exception as e:
+        logger.error(f"SSH key setup error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/public-key")
+async def get_platform_public_key(
+    user: dict = Depends(get_current_user),
+):
+    """Return the platform's SSH public key for deployment to VMs.
+
+    Deploy this key to /home/deploy/.ssh/authorized_keys on each VM
+    to enable passwordless SSH access from the platform.
+    """
+    pub_path = Path(settings.BACKUP_SSH_KEY_PATH).with_suffix(".pub")
+    if not pub_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Platform SSH key not found. Call POST /api/ssh/setup-key first.",
+        )
+    return {
+        "public_key": pub_path.read_text().strip(),
+        "key_path": settings.BACKUP_SSH_KEY_PATH,
+        "deploy_instructions": (
+            "Add this key to /home/deploy/.ssh/authorized_keys on each VM "
+            "to enable passwordless SSH access from the platform."
+        ),
+    }
 
 
 @router.get("/hosts")
