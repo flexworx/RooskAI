@@ -126,6 +126,7 @@ class LLMProxy:
         context: dict | None = None,
         force_backend: str | None = None,
         system_prompt: str | None = None,
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any]:
         """Route request through sanitization → selected backend → response."""
         # Sanitize
@@ -160,23 +161,38 @@ class LLMProxy:
         if backend == "ollama":
             return await self._complete_ollama(
                 sanitized_prompt, system_prompt or default_system, result,
+                conversation_history=conversation_history,
             )
         return await self._complete_bedrock(
             sanitized_prompt, system_prompt or default_system, result,
+            conversation_history=conversation_history,
         )
 
     async def _complete_ollama(
-        self, prompt: str, system_prompt: str, sanitization: SanitizationResult,
+        self,
+        prompt: str,
+        system_prompt: str,
+        sanitization: SanitizationResult,
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any]:
         """Send completion request to local Ollama instance."""
         start = time.monotonic()
         try:
+            # Build full prompt with conversation history
+            full_prompt = prompt
+            if conversation_history:
+                history_text = "\n".join(
+                    f"{msg['role'].upper()}: {msg['content']}"
+                    for msg in conversation_history
+                )
+                full_prompt = f"{history_text}\nUSER: {prompt}"
+
             async with httpx.AsyncClient(timeout=120.0) as client:
                 resp = await client.post(
                     f"{settings.OLLAMA_ENDPOINT}/api/generate",
                     json={
                         "model": settings.OLLAMA_MODEL,
-                        "prompt": prompt,
+                        "prompt": full_prompt,
                         "system": system_prompt,
                         "stream": False,
                     },
@@ -211,7 +227,10 @@ class LLMProxy:
             # Fall back to Bedrock if Ollama fails
             if settings.AWS_ACCESS_KEY_ID:
                 logger.info("Falling back to Bedrock after Ollama failure")
-                return await self._complete_bedrock(prompt, system_prompt, sanitization)
+                return await self._complete_bedrock(
+                    prompt, system_prompt, sanitization,
+                    conversation_history=conversation_history,
+                )
             return {
                 "response": f"Ollama API error: {e}",
                 "backend": "ollama",
@@ -223,12 +242,26 @@ class LLMProxy:
             }
 
     async def _complete_bedrock(
-        self, prompt: str, system_prompt: str, sanitization: SanitizationResult,
+        self,
+        prompt: str,
+        system_prompt: str,
+        sanitization: SanitizationResult,
+        conversation_history: list[dict] | None = None,
     ) -> dict[str, Any]:
-        """Send completion request to AWS Bedrock."""
+        """Send completion request to AWS Bedrock with optional conversation history."""
         start = time.monotonic()
 
         try:
+            # Build messages array with conversation history
+            messages: list[dict] = []
+            if conversation_history:
+                for msg in conversation_history:
+                    role = msg.get("role", "user")
+                    # Bedrock only accepts "user" and "assistant" roles
+                    if role in ("user", "assistant"):
+                        messages.append({"role": role, "content": msg["content"]})
+            messages.append({"role": "user", "content": prompt})
+
             response = self.bedrock_client.invoke_model(
                 modelId=settings.BEDROCK_MODEL_ID,
                 contentType="application/json",
@@ -236,9 +269,7 @@ class LLMProxy:
                 body=json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
                     "max_tokens": 4096,
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
+                    "messages": messages,
                     "system": system_prompt,
                 }),
             )

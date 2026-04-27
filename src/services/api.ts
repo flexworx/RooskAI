@@ -78,7 +78,18 @@ export const vmAction = (id: string, action: string, params: Record<string, unkn
   })
 
 // LLM
-export const llmComplete = (prompt: string, context: Record<string, unknown> = {}, agentType?: string) =>
+export interface ConversationMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export const llmComplete = (
+  prompt: string,
+  context: Record<string, unknown> = {},
+  agentType?: string,
+  conversationId?: string,
+  messages?: ConversationMessage[],
+) =>
   request<{
     response: string
     backend: string
@@ -86,9 +97,19 @@ export const llmComplete = (prompt: string, context: Record<string, unknown> = {
     sanitized: boolean
     action_executed: boolean
     action_result: { action: string; success: boolean; result: Record<string, unknown>; error: string | null } | null
+    conversation_id: string | null
   }>(
     '/llm/complete',
-    { method: 'POST', body: JSON.stringify({ prompt, context, agent_type: agentType || null }) },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt,
+        context,
+        agent_type: agentType || null,
+        conversation_id: conversationId || null,
+        messages: messages || [],
+      }),
+    },
   )
 export const getLLMHealth = () =>
   request<{ bedrock: import('@/types').ServiceHealth; ollama: import('@/types').ServiceHealth }>(

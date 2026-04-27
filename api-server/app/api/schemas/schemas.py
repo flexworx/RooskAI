@@ -135,11 +135,19 @@ class MurphLogEntry(BaseModel):
 
 
 # --- LLM ---
+class ConversationMessage(BaseModel):
+    """A single message in a conversation history."""
+    role: str  # "user" or "assistant"
+    content: str
+
+
 class LLMCompleteRequest(BaseModel):
     prompt: str
     context: dict = {}
     force_backend: str | None = None  # "bedrock" or "ollama" (when available)
     agent_type: str | None = None  # optional specialized agent type
+    conversation_id: str | None = None  # UUID for conversation threading
+    messages: list[ConversationMessage] = []  # prior conversation history
 
 
 class LLMCompleteResponse(BaseModel):
@@ -151,6 +159,7 @@ class LLMCompleteResponse(BaseModel):
     sanitization_actions: list[str] = []
     action_executed: bool = False
     action_result: dict | None = None
+    conversation_id: str | None = None  # echo back for client to persist
 
 
 class LLMHealthResponse(BaseModel):
